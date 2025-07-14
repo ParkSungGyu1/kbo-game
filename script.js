@@ -39,6 +39,9 @@ class KBOQuizGame {
             
             // 카카오톡 인앱 브라우저용 설정
             document.body.classList.add('kakaotalk-inapp');
+            
+            // 외부 브라우저 열기 버튼 추가
+            this.addExternalBrowserButton();
         }
         
         if (isInApp) {
@@ -47,6 +50,48 @@ class KBOQuizGame {
         }
     }
     
+    addExternalBrowserButton() {
+        const buttonContainer = document.createElement('div');
+        buttonContainer.className = 'external-browser-container';
+        buttonContainer.innerHTML = `
+            <div class="external-browser-banner">
+                <p>⚠️ 카카오톡에서 일부 기능이 제한될 수 있습니다</p>
+                <div class="browser-buttons">
+                    <button class="external-btn safari-btn" onclick="window.open('x-web-search://?${encodeURIComponent(window.location.href)}')">
+                        Safari로 열기
+                    </button>
+                    <button class="external-btn chrome-btn" onclick="window.open('googlechrome://${window.location.href.replace('https://', '')}')">
+                        Chrome으로 열기
+                    </button>
+                    <button class="external-btn copy-btn" onclick="navigator.clipboard ? navigator.clipboard.writeText(window.location.href).then(() => alert('링크가 복사되었습니다!')) : alert('링크: ' + window.location.href)">
+                        링크 복사
+                    </button>
+                </div>
+                <button class="close-banner" onclick="this.parentElement.parentElement.style.display='none'">
+                    ×
+                </button>
+            </div>
+        `;
+        
+        buttonContainer.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 9999;
+            background: linear-gradient(135deg, #ffeb3b, #ffc107);
+            border-bottom: 2px solid #ff9800;
+            font-family: inherit;
+        `;
+        
+        document.body.insertBefore(buttonContainer, document.body.firstChild);
+        
+        // 메인 컨테이너에 상단 마진 추가
+        const container = document.querySelector('.container');
+        if (container) {
+            container.style.marginTop = '120px';
+        }
+    }
     
     setOgUrl() {
         // OG URL을 현재 페이지 URL로 설정

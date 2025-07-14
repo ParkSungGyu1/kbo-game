@@ -483,6 +483,94 @@ header h1 {
 }
 
 /* 카카오톡 인앱 브라우저 호환성 */
+.external-browser-container {
+    font-family: inherit;
+}
+
+.external-browser-banner {
+    position: relative;
+    padding: 15px;
+    text-align: center;
+}
+
+.external-browser-banner p {
+    margin: 0 0 10px 0;
+    font-size: 14px;
+    font-weight: bold;
+    color: #333;
+}
+
+.browser-buttons {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 5px;
+}
+
+.external-btn {
+    background: #333;
+    color: white;
+    border: none;
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+}
+
+.external-btn:hover {
+    background: #555;
+    transform: translateY(-1px);
+}
+
+.safari-btn {
+    background: #007aff;
+}
+
+.safari-btn:hover {
+    background: #0056cc;
+}
+
+.chrome-btn {
+    background: #4285f4;
+}
+
+.chrome-btn:hover {
+    background: #3367d6;
+}
+
+.copy-btn {
+    background: #28a745;
+}
+
+.copy-btn:hover {
+    background: #218838;
+}
+
+.close-banner {
+    position: absolute;
+    top: 5px;
+    right: 10px;
+    background: none;
+    border: none;
+    font-size: 20px;
+    cursor: pointer;
+    color: #666;
+    padding: 0;
+    width: 25px;
+    height: 25px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.close-banner:hover {
+    color: #333;
+    background: rgba(0,0,0,0.1);
+    border-radius: 50%;
+}
 
 /* 인앱 브라우저 공통 스타일 */
 .inapp-browser {
