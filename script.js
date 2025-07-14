@@ -33,7 +33,23 @@ class KBOQuizGame {
             { key: 'image', label: '사진' }
         ];
         
+        // API 기본 URL 설정
+        this.apiBaseUrl = this.getApiBaseUrl();
+        
         this.init();
+    }
+    
+    // API 기본 URL 감지
+    getApiBaseUrl() {
+        const currentUrl = window.location.href;
+        
+        // 로컬 개발 환경
+        if (currentUrl.includes('localhost:3000') || currentUrl.includes('127.0.0.1:3000')) {
+            return 'http://localhost:3001';
+        }
+        
+        // 배포 환경에서는 상대 경로 사용 (같은 서버에서 API 제공)
+        return '';
     }
     
     init() {
@@ -259,6 +275,10 @@ class KBOQuizGame {
         document.querySelectorAll('.difficulty-btn').forEach(btn => {
             btn.addEventListener('click', this.selectDifficulty.bind(this));
         });
+        
+        // 돌아가기 버튼 이벤트
+        document.getElementById('back-to-intro').addEventListener('click', this.backToIntro.bind(this));
+        document.getElementById('back-to-intro-challenge').addEventListener('click', this.backToIntro.bind(this));
     }
     
     // 모드 선택 메소드
@@ -271,6 +291,61 @@ class KBOQuizGame {
         this.challengeMode.isActive = true;
         this.showScreen('challenge-setup-screen');
         this.loadChallengeTeamsForYear();
+    }
+    
+    // 인트로 화면으로 돌아가기
+    backToIntro() {
+        // 모든 입력값 초기화
+        this.resetAllInputs();
+        
+        // 연속 도전 모드 초기화
+        this.challengeMode.isActive = false;
+        
+        // 인트로 화면으로 이동
+        this.showScreen('intro-screen');
+    }
+    
+    // 모든 입력값 초기화
+    resetAllInputs() {
+        // 일반 모드 입력값 초기화
+        const playerNameInput = document.getElementById('player-name');
+        const gameTeamInput = document.getElementById('game-team');
+        
+        if (playerNameInput) playerNameInput.value = '';
+        if (gameTeamInput) gameTeamInput.value = '';
+        
+        // 연속 도전 모드 입력값 초기화
+        const challengePlayerNameInput = document.getElementById('challenge-player-name');
+        const challengeTeamInput = document.getElementById('challenge-team');
+        
+        if (challengePlayerNameInput) challengePlayerNameInput.value = '';
+        if (challengeTeamInput) challengeTeamInput.value = '';
+        
+        // 팀 선택 초기화
+        document.querySelectorAll('.team-logo').forEach(logo => {
+            logo.classList.remove('selected');
+        });
+        
+        // 난이도 선택 초기화 (중급으로 되돌리기)
+        document.querySelectorAll('.difficulty-btn').forEach(btn => {
+            btn.classList.remove('selected');
+        });
+        const normalDifficultyBtn = document.querySelector('.difficulty-btn[data-difficulty="normal"]');
+        if (normalDifficultyBtn) {
+            normalDifficultyBtn.classList.add('selected');
+        }
+        
+        // 게임 시작 버튼 비활성화
+        const startGameBtn = document.getElementById('start-game');
+        const startChallengeBtn = document.getElementById('start-challenge');
+        
+        if (startGameBtn) startGameBtn.disabled = true;
+        if (startChallengeBtn) startChallengeBtn.disabled = true;
+        
+        // 버튼 텍스트 복구
+        if (startChallengeBtn) {
+            startChallengeBtn.textContent = '연속 도전 시작!';
+        }
     }
     
     // 난이도 선택 메소드
@@ -332,7 +407,7 @@ class KBOQuizGame {
                 }
             };
             
-            const response = await fetch(`http://localhost:3001/api/teams/${year}`, fetchOptions);
+            const response = await fetch(`${this.apiBaseUrl}/api/teams/${year}`, fetchOptions);
             const data = await response.json();
             
             if (data.success && data.teams.length > 0) {
@@ -444,7 +519,7 @@ class KBOQuizGame {
                 }
             };
             
-            const response = await fetch(`http://localhost:3001/api/teams/${year}`, fetchOptions);
+            const response = await fetch(`${this.apiBaseUrl}/api/teams/${year}`, fetchOptions);
             const data = await response.json();
             
             if (data.success && data.teams.length > 0) {
@@ -631,7 +706,7 @@ class KBOQuizGame {
                         if (!players.find(p => p.playerId === player.playerId)) {
                             try {
                                 // 각 선수의 상세 정보도 미리 가져오기
-                                const playerDetailResponse = await fetch(`http://localhost:3001/api/player/${player.playerId}`, {
+                                const playerDetailResponse = await fetch(`${this.apiBaseUrl}/api/player/${player.playerId}`, {
                                     method: 'GET',
                                     headers: {
                                         'Cache-Control': 'no-cache'
@@ -686,7 +761,7 @@ class KBOQuizGame {
     
     // 연속 도전 모드용 선수 목록 로드
     async loadChallengePlayersList() {
-        const playersResponse = await fetch('http://localhost:3001/api/players', {
+        const playersResponse = await fetch(`${this.apiBaseUrl}/api/players`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -1156,7 +1231,7 @@ class KBOQuizGame {
                     `${this.gameData.date} 경기 데이터 확인 중`);
                 
                 // 실제 KBO 데이터 크롤링 시도 (카카오톡 인앱 브라우저 호환성 처리)
-                const playersResponse = await fetch('http://localhost:3001/api/players', {
+                const playersResponse = await fetch(`${this.apiBaseUrl}/api/players`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -1179,7 +1254,7 @@ class KBOQuizGame {
                     const randomPlayer = playersData.players[Math.floor(Math.random() * playersData.players.length)];
                     
                     // 선수 상세 정보 가져오기 (카카오톡 인앱 브라우저 호환성 처리)
-                    const playerResponse = await fetch(`http://localhost:3001/api/player/${randomPlayer.playerId}`, {
+                    const playerResponse = await fetch(`${this.apiBaseUrl}/api/player/${randomPlayer.playerId}`, {
                         method: 'GET',
                         headers: {
                             'Content-Type': 'application/json',

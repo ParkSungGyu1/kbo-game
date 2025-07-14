@@ -135,6 +135,41 @@ header h1 {
     margin: 0 auto;
 }
 
+.setup-header {
+    position: relative;
+    margin-bottom: 30px;
+    text-align: center;
+}
+
+.back-button {
+    position: absolute;
+    left: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    background: linear-gradient(135deg, #6c757d 0%, #495057 100%);
+    color: white;
+    border: none;
+    padding: 10px 16px;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 3px 12px rgba(108, 117, 125, 0.3);
+}
+
+.back-button:hover {
+    transform: translateY(-50%) translateY(-2px);
+    box-shadow: 0 5px 18px rgba(108, 117, 125, 0.4);
+    background: linear-gradient(135deg, #495057 0%, #343a40 100%);
+}
+
+.setup-header h2 {
+    margin: 0;
+    font-size: 1.8rem;
+    color: #667eea;
+}
+
 .form-group {
     margin-bottom: 20px;
 }
@@ -728,6 +763,28 @@ header h1 {
     
     .share-section {
         flex-direction: column;
+    }
+    
+    /* 돌아가기 버튼 반응형 */
+    .back-button {
+        position: static;
+        transform: none;
+        margin-bottom: 15px;
+        font-size: 13px;
+        padding: 8px 12px;
+    }
+    
+    .back-button:hover {
+        transform: translateY(-2px);
+    }
+    
+    .setup-header {
+        text-align: left;
+    }
+    
+    .setup-header h2 {
+        text-align: center;
+        margin-top: 10px;
     }
 }
 
