@@ -23,9 +23,62 @@ class KBOQuizGame {
     }
     
     init() {
+        this.detectEnvironment();
         this.bindEvents();
         this.loadTeams();
         this.setOgUrl();
+    }
+    
+    detectEnvironment() {
+        const userAgent = navigator.userAgent.toLowerCase();
+        const isKakaoTalk = userAgent.includes('kakaotalk');
+        const isInApp = userAgent.includes('inapp') || isKakaoTalk;
+        
+        if (isKakaoTalk) {
+            console.log('[DEBUG] 카카오톡 인앱 브라우저 감지됨');
+            
+            // 카카오톡 인앱 브라우저용 설정
+            document.body.classList.add('kakaotalk-inapp');
+            
+            // 외부 브라우저 열기 버튼 추가
+            this.addExternalBrowserButton();
+        }
+        
+        if (isInApp) {
+            // 인앱 브라우저 공통 설정
+            document.body.classList.add('inapp-browser');
+        }
+    }
+    
+    addExternalBrowserButton() {
+        const button = document.createElement('div');
+        button.className = 'external-browser-btn';
+        button.innerHTML = `
+            <p>⚠️ 카카오톡에서 일부 기능이 제한될 수 있습니다</p>
+            <button onclick="window.open(window.location.href, '_blank')">
+                외부 브라우저에서 열기
+            </button>
+        `;
+        button.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            background: #ffeb3b;
+            padding: 10px;
+            text-align: center;
+            font-size: 12px;
+            z-index: 9999;
+            border-bottom: 1px solid #ddd;
+        `;
+        
+        document.body.insertBefore(button, document.body.firstChild);
+        
+        // 메인 컨테이너에 상단 마진 추가
+        const container = document.querySelector('.container');
+        if (container) {
+            container.style.marginTop = '80px';
+        }
     }
     
     setOgUrl() {
@@ -75,7 +128,17 @@ class KBOQuizGame {
         teamLogosContainer.innerHTML = '';
         
         try {
-            const response = await fetch(`/api/teams/${year}`);
+            // 카카오톡 인앱 브라우저 호환성 처리
+            const fetchOptions = {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Cache-Control': 'no-cache'
+                },
+                credentials: 'same-origin'
+            };
+            
+            const response = await fetch(`/api/teams/${year}`, fetchOptions);
             const data = await response.json();
             
             if (data.success && data.teams.length > 0) {
@@ -214,12 +277,14 @@ class KBOQuizGame {
                 this.updateLoadingMessage(`선수 정보를 찾는 중... (${attempt}/${maxRetries})`, 
                     `${this.gameData.date} 경기 데이터 확인 중`);
                 
-                // 실제 KBO 데이터 크롤링 시도
+                // 실제 KBO 데이터 크롤링 시도 (카카오톡 인앱 브라우저 호환성 처리)
                 const playersResponse = await fetch('/api/players', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
+                        'Cache-Control': 'no-cache'
                     },
+                    credentials: 'same-origin',
                     body: JSON.stringify({
                         year: this.gameData.year,
                         team: this.gameData.team,
@@ -235,8 +300,15 @@ class KBOQuizGame {
                     // 랜덤 선수 선택
                     const randomPlayer = playersData.players[Math.floor(Math.random() * playersData.players.length)];
                     
-                    // 선수 상세 정보 가져오기
-                    const playerResponse = await fetch(`/api/player/${randomPlayer.playerId}`);
+                    // 선수 상세 정보 가져오기 (카카오톡 인앱 브라우저 호환성 처리)
+                    const playerResponse = await fetch(`/api/player/${randomPlayer.playerId}`, {
+                        method: 'GET',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Cache-Control': 'no-cache'
+                        },
+                        credentials: 'same-origin'
+                    });
                     const playerData = await playerResponse.json();
                     
                     if (playerData.success && playerData.player.name && playerData.player.name !== '정보 없음') {

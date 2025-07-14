@@ -481,3 +481,31 @@ header h1 {
         flex-direction: column;
     }
 }
+
+/* 카카오톡 인앱 브라우저 호환성 */
+.kakaotalk-inapp .external-browser-btn {
+    display: block !important;
+}
+
+.kakaotalk-inapp .external-browser-btn button {
+    background: #333;
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 4px;
+    margin-top: 5px;
+    cursor: pointer;
+}
+
+.kakaotalk-inapp .external-browser-btn button:hover {
+    background: #555;
+}
+
+/* 인앱 브라우저 공통 스타일 */
+.inapp-browser {
+    -webkit-overflow-scrolling: touch;
+}
+
+.inapp-browser * {
+    -webkit-tap-highlight-color: transparent;
+}
