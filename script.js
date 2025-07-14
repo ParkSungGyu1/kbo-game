@@ -677,14 +677,24 @@ class KBOQuizGame {
         this.showChallengeLoading(true, '🚀 연속 도전 모드 준비 중...', '5명의 선수 정보를 준비하고 있습니다.', 0);
         
         const players = [];
-        const maxAttempts = 10; // 최대 시도 횟수
+        const usedDates = new Set(); // 사용된 날짜 추적
+        const maxAttempts = 15; // 최대 시도 횟수 증가
         let attempts = 0;
         
         while (players.length < 5 && attempts < maxAttempts) {
             attempts++;
             
             try {
-                const randomDate = this.generateRandomDate(this.gameData.year);
+                // 이미 사용된 날짜가 아닌 새로운 날짜 생성
+                let randomDate;
+                let dateAttempts = 0;
+                do {
+                    randomDate = this.generateRandomDate(this.gameData.year);
+                    dateAttempts++;
+                } while (usedDates.has(randomDate) && dateAttempts < 10);
+                
+                // 새로운 날짜를 사용된 날짜에 추가
+                usedDates.add(randomDate);
                 this.gameData.date = randomDate;
                 
                 const progress = (players.length / 5) * 100;
@@ -695,11 +705,14 @@ class KBOQuizGame {
                 const playersData = await this.loadChallengePlayersList();
                 
                 if (playersData && playersData.length > 0) {
-                    // 최대 3명까지 선택 (중복 방지)
+                    // 랜덤하게 섞기
                     const shuffled = [...playersData].sort(() => Math.random() - 0.5);
-                    const selectedFromThisDate = shuffled.slice(0, Math.min(3, 5 - players.length));
                     
-                    for (const player of selectedFromThisDate) {
+                    // 한 날짜에서 최대 2명만 선택하여 더 다양한 날짜 사용
+                    const maxFromThisDate = Math.min(2, shuffled.length, 5 - players.length);
+                    
+                    for (let i = 0; i < maxFromThisDate; i++) {
+                        const player = shuffled[i];
                         if (players.length >= 5) break;
                         
                         // 중복 제거
@@ -1224,6 +1237,11 @@ class KBOQuizGame {
         
         while (attempt <= maxRetries) {
             try {
+                // 재시도할 때마다 새로운 날짜 생성
+                if (attempt > 1) {
+                    this.gameData.date = this.generateRandomDate(this.gameData.year);
+                }
+                
                 console.log(`[DEBUG] 선수 데이터 로딩 시도 ${attempt}/${maxRetries}, 날짜: ${this.gameData.date}`);
                 
                 // 로딩 메시지 업데이트
