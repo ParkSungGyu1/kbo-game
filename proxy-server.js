@@ -44,23 +44,82 @@ function parsePlayers(asyncHtml) {
         const $ = cheerio.load(html);
         const players = [];
         
-        // 선수 테이블 파싱
-        $('table.tNData tbody tr').each((_, row) => {
-            const $row = $(row);
-            const href = $row.find('td:nth-child(2) a').attr('href') || '';
-            const match = href.match(/playerId=(\d+)/);
+        // 각 포지션별 테이블을 순회 (선수만 필터링)
+        $('table.tNData').each((tableIndex, table) => {
+            const $table = $(table);
+            const positionHeader = $table.find('thead th:nth-child(2)').text().trim();
             
-            if (match) {
-                players.push({
-                    playerId: match[1],
-                    name: $row.find('td:nth-child(2)').text().trim(),
-                    backNo: $row.find('td:nth-child(1)').text().trim(),
-                    position: $row.find('td:nth-child(3)').text().trim(),
-                    throwHand: $row.find('td:nth-child(4)').text().trim(),
-                    birthday: $row.find('td:nth-child(5)').text().trim(),
-                    physique: $row.find('td:nth-child(6)').text().trim()
-                });
+            console.log(`[DEBUG] Table ${tableIndex}: ${positionHeader}`);
+            
+            // 포지션 결정 (감독, 코치, 선수명 헤더 제외)
+            let position = '';
+            if (positionHeader === '투수') position = '투수';
+            else if (positionHeader === '포수') position = '포수';
+            else if (positionHeader === '내야수') position = '내야수';
+            else if (positionHeader === '외야수') position = '외야수';
+            else if (positionHeader === '선수명') {
+                // 마지막 테이블의 경우 포지션이 별도 컬럼에 있음
+                position = 'mixed';
+            } else {
+                console.log(`[DEBUG] Skipping table with header: ${positionHeader}`);
+                return; // 감독, 코치는 스킵
             }
+            
+            // 각 선수 행 파싱
+            $table.find('tbody tr').each((rowIndex, row) => {
+                const $row = $(row);
+                let $nameLink, playerPosition, backNo, throwHand, birthday, physique;
+                
+                if (position === 'mixed') {
+                    // 선수명이 헤더인 경우 (6컬럼 테이블)
+                    $nameLink = $row.find('td:nth-child(2) a');
+                    playerPosition = $row.find('td:nth-child(3)').text().trim();
+                    backNo = $row.find('td:nth-child(1)').text().trim();
+                    throwHand = $row.find('td:nth-child(4)').text().trim();
+                    birthday = $row.find('td:nth-child(5)').text().trim();
+                    physique = $row.find('td:nth-child(6)').text().trim();
+                    
+                    // 포지션에서 실제 포지션 부분만 추출 (괄호 앞부분)
+                    const actualPosition = playerPosition.split('(')[0].trim();
+                    
+                    // 선수만 포함 (감독, 코치 제외)
+                    const validPositions = ['투수', '포수', '내야수', '외야수', '1루수', '2루수', '3루수', '유격수', '좌익수', '중견수', '우익수', 'DH', '지명타자'];
+                    const isValidPlayer = actualPosition && validPositions.includes(actualPosition);
+                    
+                    if (!isValidPlayer || actualPosition === '') {
+                        console.log(`[DEBUG] Skipping non-player: ${$nameLink.text().trim()} (${playerPosition})`);
+                        return; // 선수가 아닌 경우 스킵
+                    }
+                } else {
+                    // 일반적인 5컬럼 테이블
+                    $nameLink = $row.find('td:nth-child(2) a');
+                    playerPosition = position;
+                    backNo = $row.find('td:nth-child(1)').text().trim();
+                    throwHand = $row.find('td:nth-child(3)').text().trim();
+                    birthday = $row.find('td:nth-child(4)').text().trim();
+                    physique = $row.find('td:nth-child(5)').text().trim();
+                }
+                
+                if ($nameLink.length > 0) {
+                    const href = $nameLink.attr('href');
+                    const playerIdMatch = href.match(/playerId=(\d+)/);
+                    
+                    if (playerIdMatch) {
+                        const player = {
+                            playerId: playerIdMatch[1],
+                            name: $nameLink.text().trim(),
+                            backNo: backNo,
+                            position: playerPosition,
+                            throwHand: throwHand,
+                            birthday: birthday,
+                            physique: physique
+                        };
+                        
+                        console.log(`[DEBUG] Found player: ${player.name} (${player.position})`);
+                        players.push(player);
+                    }
+                }
+            });
         });
         
         return { success: true, players };
@@ -494,6 +553,18 @@ function parsePlayerList(html) {
                 throwHand = $row.find('td:nth-child(4)').text().trim();
                 birthday = $row.find('td:nth-child(5)').text().trim();
                 physique = $row.find('td:nth-child(6)').text().trim();
+                
+                // 포지션에서 실제 포지션 부분만 추출 (괄호 앞부분)
+                const actualPosition = playerPosition.split('(')[0].trim();
+                
+                // 선수만 포함 (감독, 코치 제외)
+                const validPositions = ['투수', '포수', '내야수', '외야수', '1루수', '2루수', '3루수', '유격수', '좌익수', '중견수', '우익수', 'DH', '지명타자'];
+                const isValidPlayer = actualPosition && validPositions.includes(actualPosition);
+                
+                if (!isValidPlayer || actualPosition === '') {
+                    console.log(`[DEBUG] Skipping non-player: ${$nameLink.text().trim()} (${playerPosition})`);
+                    return; // 선수가 아닌 경우 스킵
+                }
             } else {
                 // 일반적인 5컬럼 테이블
                 $nameLink = $row.find('td:nth-child(2) a');
