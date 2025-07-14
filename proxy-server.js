@@ -155,131 +155,64 @@ app.post('/api/players', async (req, res) => {
     });
 });
 
-async function fetchPlayersWithRetry(requestBody, attempt) {
-    const { year, team, date } = requestBody;
-    
-    console.log(`[DEBUG] Fetching players for:`, { year, team, date, attempt });
-    
+// proxy-server.js (일부 발췌 및 패치 적용된 fetchPlayersWithRetry 함수)
+
+async function fetchPlayersWithRetry({ year, team, date }, retries = 3) {
     const registerUrl = 'https://www.koreabaseball.com/Player/Register.aspx';
-    
-    // 매 시도마다 새로운 세션으로 ViewState 추출
-    const initialResponse = await fetch(registerUrl, {
+  
+    try {
+      // 1차 요청: VIEWSTATE, EVENTVALIDATION 추출용
+      const initialResponse = await fetch(registerUrl, {
         headers: {
-            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36',
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-            'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7',
-            'Cache-Control': 'no-cache'
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0 Safari/537.36',
+          'Referer': 'https://www.koreabaseball.com/Player/Register.aspx',
+          'Origin': 'https://www.koreabaseball.com'
         }
-    });
-    
-    if (!initialResponse.ok) {
-        throw new Error(`Initial page load failed: ${initialResponse.status}`);
-    }
-    
-    const initialHtml = await initialResponse.text();
-    const $ = cheerio.load(initialHtml);
-    
-    // ASP.NET ViewState 값들 추출
-    const viewState = $('input[name="__VIEWSTATE"]').val();
-    const viewStateGenerator = $('input[name="__VIEWSTATEGENERATOR"]').val();
-    const eventValidation = $('input[name="__EVENTVALIDATION"]').val();
-    
-    console.log(`[DEBUG] Attempt ${attempt} - ViewState length:`, viewState?.length);
-    console.log(`[DEBUG] Attempt ${attempt} - EventValidation length:`, eventValidation?.length);
-    
-    if (!viewState || !eventValidation) {
-        throw new Error('Failed to extract ViewState or EventValidation');
-    }
-    
-    // 날짜 형식 변환: 2024-09-17 -> 20240917
-    const formattedDate = date.replace(/-/g, '');
-    
-    // 날짜 유효성 검증
-    if (!isValidKboDate(formattedDate, year)) {
-        console.log(`[DEBUG] Invalid date for KBO season: ${formattedDate}`);
-        return { success: false, error: 'Invalid date for KBO season' };
-    }
-    
-    // curl에서 추출한 정확한 POST 요청 구성
-    const formData = new URLSearchParams({
-        'ctl00$ctl00$ctl00$cphContents$cphContents$cphContents$ScriptManager1': 'ctl00$ctl00$ctl00$cphContents$cphContents$cphContents$udpRecord|ctl00$ctl00$ctl00$cphContents$cphContents$cphContents$btnCalendarSelect',
-        'ctl00$ctl00$ctl00$cphContents$cphContents$cphContents$hfSearchTeam': team,
-        'ctl00$ctl00$ctl00$cphContents$cphContents$cphContents$hfSearchDate': formattedDate,
-        '__EVENTTARGET': 'ctl00$ctl00$ctl00$cphContents$cphContents$cphContents$btnCalendarSelect',
+      });
+  
+      const html = await initialResponse.text();
+      const { viewState, eventValidation } = extractAspNetParams(html);
+  
+      if (!viewState || !eventValidation) throw new Error('ASP.NET hidden params 추출 실패');
+  
+      const formData = new URLSearchParams({
+        '__EVENTTARGET': '',
         '__EVENTARGUMENT': '',
         '__VIEWSTATE': viewState,
-        '__VIEWSTATEGENERATOR': viewStateGenerator,
         '__EVENTVALIDATION': eventValidation,
-        '__ASYNCPOST': 'true'
-    });
-
-    console.log(`[DEBUG] Attempt ${attempt} - POST with team:`, team, 'date:', formattedDate);
-
-    const response = await fetch(registerUrl, {
+        'ScriptManager1': 'ctl00$cphContents$cphContents$cphContents$udpRecord|ctl00$cphContents$cphContents$cphContents$btnSearch',
+        '__ASYNCPOST': 'true',
+        'ctl00$cphContents$cphContents$cphContents$hfSearchTeam': team,
+        'ctl00$cphContents$cphContents$cphContents$hfSearchDate': date,
+        'ctl00$cphContents$cphContents$cphContents$btnSearch': '조회'
+      });
+  
+      // 2차 요청: 실제 선수 데이터 요청
+      const response = await fetch(registerUrl, {
         method: 'POST',
         headers: {
-            'Accept': '*/*',
-            'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7',
-            'Cache-Control': 'no-cache',
-            'Connection': 'keep-alive',
-            'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
-            'Origin': 'https://www.koreabaseball.com',
-            'Referer': 'https://www.koreabaseball.com/Player/Register.aspx',
-            'Sec-Fetch-Dest': 'empty',
-            'Sec-Fetch-Mode': 'cors',
-            'Sec-Fetch-Site': 'same-origin',
-            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36',
-            'X-MicrosoftAjax': 'Delta=true',
-            'X-Requested-With': 'XMLHttpRequest',
-            'sec-ch-ua': '"Chromium";v="136", "Google Chrome";v="136", "Not.A/Brand";v="99"',
-            'sec-ch-ua-mobile': '?0',
-            'sec-ch-ua-platform': '"macOS"'
+          'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+          'X-Requested-With': 'XMLHttpRequest',
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0 Safari/537.36',
+          'Referer': 'https://www.koreabaseball.com/Player/Register.aspx',
+          'Origin': 'https://www.koreabaseball.com'
         },
-        body: formData.toString()
-    });
-    
-    if (!response.ok) {
-        throw new Error(`POST request failed: ${response.status}`);
+        body: formData
+      });
+  
+      const asyncHtml = await response.text();
+      return parsePlayers(asyncHtml);
+    } catch (error) {
+      if (retries > 0) {
+        console.warn(`[RETRY] fetchPlayers 실패, 재시도 남음: ${retries}회`);
+        await delay(1000);
+        return fetchPlayersWithRetry({ year, team, date }, retries - 1);
+      } else {
+        throw error;
+      }
     }
-    
-    const html = await response.text();
-    
-    // HTML 응답 디버깅
-    console.log(`[DEBUG] Attempt ${attempt} - Response status:`, response.status);
-    console.log(`[DEBUG] Attempt ${attempt} - HTML length:`, html.length);
-    console.log(`[DEBUG] Attempt ${attempt} - HTML preview:`, html.substring(0, 300));
-    
-    // 에러 응답 체크 (빠른 실패)
-    if (html.includes('pageRedirect') || html.includes('Error') || html.length < 1000) {
-        // 첫 2번의 시도에서는 빠르게 실패하고 재시도
-        if (attempt <= 2) {
-            throw new Error('KBO site returned error/short response - quick retry');
-        } else {
-            throw new Error('KBO site returned error response');
-        }
-    }
-    
-    // ASP.NET AJAX 응답 파싱
-    let actualHtml = html;
-    if (html.includes('|') && (html.includes('updatePanel') || html.includes('udpRecord'))) {
-        console.log(`[DEBUG] Attempt ${attempt} - Detected AJAX response, parsing...`);
-        actualHtml = parseAspNetAjaxResponse(html);
-        console.log(`[DEBUG] Attempt ${attempt} - Parsed HTML length:`, actualHtml.length);
-    }
-    
-    const players = parsePlayerList(actualHtml);
-    
-    console.log(`[DEBUG] Attempt ${attempt} - Found ${players.length} players for team ${team}`);
-    
-    // 결과 반환 (성공 여부와 관계없이 파싱된 데이터 포함)
-    const isSuccess = players.length >= 5;
-    
-    return { 
-        success: isSuccess, 
-        players: players,
-        error: isSuccess ? null : `Only found ${players.length} players, expected more`
-    };
-}
+  }
+  
 
 // 날짜 유효성 검증 함수
 function isValidKboDate(dateString, year) {
