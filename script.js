@@ -125,8 +125,12 @@ class KBOQuizGame {
             img.src = team.imageUrl;
             img.alt = team.name;
             img.onerror = () => {
-                // 이미지 로드 실패 시 플레이스홀더 사용
-                img.src = `https://via.placeholder.com/40x40?text=${team.name}`;
+                // 이미지 로드 실패 시 텍스트만 표시
+                img.style.display = 'none';
+                logoDiv.style.padding = '10px';
+                logoDiv.style.border = '2px solid #ddd';
+                logoDiv.style.borderRadius = '8px';
+                logoDiv.style.backgroundColor = '#f5f5f5';
             };
             
             const span = document.createElement('span');
