@@ -57,7 +57,7 @@ class KBOQuizGame {
             <div class="external-browser-banner">
                 <p>⚠️ 카카오톡에서 일부 기능이 제한될 수 있습니다</p>
                 <div class="browser-buttons">
-                    <button class="external-btn safari-btn" onclick="window.open('x-web-search://?${encodeURIComponent(window.location.href)}')">
+                    <button class="external-btn safari-btn" onclick="window.openInSafari()">
                         Safari로 열기
                     </button>
                     <button class="external-btn chrome-btn" onclick="window.open('googlechrome://${window.location.href.replace('https://', '')}')">
@@ -85,6 +85,53 @@ class KBOQuizGame {
         `;
         
         document.body.insertBefore(buttonContainer, document.body.firstChild);
+        
+        // Safari 열기 함수를 전역으로 추가
+        window.openInSafari = function() {
+            const currentUrl = window.location.href;
+            
+            // 여러 방법을 순차적으로 시도
+            const safariMethods = [
+                // 방법 1: FTP 스킴 사용 (iOS에서 Safari로 리다이렉트)
+                `ftp://${currentUrl.replace('https://', '').replace('http://', '')}`,
+                // 방법 2: 기본 브라우저에서 열기
+                currentUrl,
+                // 방법 3: 데이터 URL로 리다이렉트
+                `data:text/html,<script>window.location.href="${currentUrl}"</script>`
+            ];
+            
+            // iOS Safari 전용 처리
+            const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+            if (isIOS) {
+                // iOS에서는 특별한 처리
+                try {
+                    // 방법 1: 새 창으로 열기 (Safari가 기본 브라우저인 경우)
+                    const newWindow = window.open(currentUrl, '_blank');
+                    if (!newWindow) {
+                        // 팝업이 차단된 경우 클립보드 복사로 대체
+                        if (navigator.clipboard) {
+                            navigator.clipboard.writeText(currentUrl).then(() => {
+                                alert('Safari에서 열 수 없어 링크를 복사했습니다.\nSafari를 열고 주소창에 붙여넣기 하세요.');
+                            });
+                        } else {
+                            alert(`Safari에서 열 수 없습니다.\n아래 링크를 복사해서 Safari 주소창에 붙여넣으세요:\n\n${currentUrl}`);
+                        }
+                    }
+                } catch (e) {
+                    // 오류 발생 시 클립보드 복사
+                    if (navigator.clipboard) {
+                        navigator.clipboard.writeText(currentUrl).then(() => {
+                            alert('링크를 복사했습니다.\nSafari를 열고 주소창에 붙여넣기 하세요.');
+                        });
+                    } else {
+                        alert(`아래 링크를 복사해서 Safari 주소창에 붙여넣으세요:\n\n${currentUrl}`);
+                    }
+                }
+            } else {
+                // 안드로이드나 기타 환경에서는 기본 브라우저로 열기
+                window.open(currentUrl, '_blank') || alert(`링크: ${currentUrl}`);
+            }
+        };
         
         // 메인 컨테이너에 상단 마진 추가
         const container = document.querySelector('.container');
