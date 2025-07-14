@@ -75,7 +75,7 @@ class KBOQuizGame {
         teamLogosContainer.innerHTML = '';
         
         try {
-            const response = await fetch(`http://localhost:3001/api/teams/${year}`);
+            const response = await fetch(`/api/teams/${year}`);
             const data = await response.json();
             
             if (data.success && data.teams.length > 0) {
@@ -215,7 +215,7 @@ class KBOQuizGame {
                     `${this.gameData.date} 경기 데이터 확인 중`);
                 
                 // 실제 KBO 데이터 크롤링 시도
-                const playersResponse = await fetch('http://localhost:3001/api/players', {
+                const playersResponse = await fetch('/api/players', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -236,7 +236,7 @@ class KBOQuizGame {
                     const randomPlayer = playersData.players[Math.floor(Math.random() * playersData.players.length)];
                     
                     // 선수 상세 정보 가져오기
-                    const playerResponse = await fetch(`http://localhost:3001/api/player/${randomPlayer.playerId}`);
+                    const playerResponse = await fetch(`/api/player/${randomPlayer.playerId}`);
                     const playerData = await playerResponse.json();
                     
                     if (playerData.success && playerData.player.name && playerData.player.name !== '정보 없음') {
