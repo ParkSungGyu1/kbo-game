@@ -19,8 +19,17 @@ app.get('/api/teams/:year', async (req, res) => {
         const date = `${year}0701`;
         const url = 'https://www.koreabaseball.com/Player/Register.aspx';
         
-        // 1단계: 초기 페이지 접속하여 팀 목록 추출
-        const response = await fetch(url);
+        // 1단계: 초기 페이지 접속하여 팀 목록 추출 (안정적인 Chrome 헤더 사용)
+        const teamHeaders = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
+            'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7',
+            'Cache-Control': 'no-cache'
+        };
+        
+        const response = await fetch(url, {
+            headers: teamHeaders
+        });
         const html = await response.text();
         const $ = cheerio.load(html);
         
@@ -167,13 +176,26 @@ async function fetchPlayersWithRetry(requestBody, attempt) {
     const registerUrl = 'https://www.koreabaseball.com/Player/Register.aspx';
     
     // 매 시도마다 새로운 세션으로 ViewState 추출
+    // KBO 사이트 호환성을 위해 안정적인 Chrome User-Agent 사용
+    const stableHeaders = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
+        'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7',
+        'Accept-Encoding': 'gzip, deflate, br',
+        'Cache-Control': 'no-cache',
+        'Pragma': 'no-cache',
+        'Sec-Ch-Ua': '"Not_A Brand";v="8", "Chromium";v="120", "Google Chrome";v="120"',
+        'Sec-Ch-Ua-Mobile': '?0',
+        'Sec-Ch-Ua-Platform': '"Windows"',
+        'Sec-Fetch-Dest': 'document',
+        'Sec-Fetch-Mode': 'navigate',
+        'Sec-Fetch-Site': 'none',
+        'Sec-Fetch-User': '?1',
+        'Upgrade-Insecure-Requests': '1'
+    };
+    
     const initialResponse = await fetch(registerUrl, {
-        headers: {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36',
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-            'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7',
-            'Cache-Control': 'no-cache'
-        }
+        headers: stableHeaders
     });
     
     if (!initialResponse.ok) {
@@ -219,26 +241,30 @@ async function fetchPlayersWithRetry(requestBody, attempt) {
 
     console.log(`[DEBUG] Attempt ${attempt} - POST with team:`, team, 'date:', formattedDate);
 
+    // AJAX POST 요청용 헤더 (안정적인 Chrome 헤더 사용)
+    const ajaxHeaders = {
+        'Accept': '*/*',
+        'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7',
+        'Accept-Encoding': 'gzip, deflate, br',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive',
+        'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+        'Origin': 'https://www.koreabaseball.com',
+        'Referer': 'https://www.koreabaseball.com/Player/Register.aspx',
+        'Sec-Ch-Ua': '"Not_A Brand";v="8", "Chromium";v="120", "Google Chrome";v="120"',
+        'Sec-Ch-Ua-Mobile': '?0',
+        'Sec-Ch-Ua-Platform': '"Windows"',
+        'Sec-Fetch-Dest': 'empty',
+        'Sec-Fetch-Mode': 'cors',
+        'Sec-Fetch-Site': 'same-origin',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'X-MicrosoftAjax': 'Delta=true',
+        'X-Requested-With': 'XMLHttpRequest'
+    };
+
     const response = await fetch(registerUrl, {
         method: 'POST',
-        headers: {
-            'Accept': '*/*',
-            'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7',
-            'Cache-Control': 'no-cache',
-            'Connection': 'keep-alive',
-            'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
-            'Origin': 'https://www.koreabaseball.com',
-            'Referer': 'https://www.koreabaseball.com/Player/Register.aspx',
-            'Sec-Fetch-Dest': 'empty',
-            'Sec-Fetch-Mode': 'cors',
-            'Sec-Fetch-Site': 'same-origin',
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36',
-            'X-MicrosoftAjax': 'Delta=true',
-            'X-Requested-With': 'XMLHttpRequest',
-            'sec-ch-ua': '"Chromium";v="136", "Google Chrome";v="136", "Not.A/Brand";v="99"',
-            'sec-ch-ua-mobile': '?0',
-            'sec-ch-ua-platform': '"macOS"'
-        },
+        headers: ajaxHeaders,
         body: formData.toString()
     });
     
@@ -359,14 +385,26 @@ app.get('/api/player/:playerId', async (req, res) => {
 async function fetchPlayerDetailWithRetry(playerId, attempt) {
     console.log(`[DEBUG] Attempt ${attempt} - Fetching player detail for ID:`, playerId);
     
+    // 안정적인 Chrome 헤더로 선수 상세 페이지 요청
+    const playerHeaders = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
+        'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7',
+        'Accept-Encoding': 'gzip, deflate, br',
+        'Cache-Control': 'no-cache',
+        'Sec-Ch-Ua': '"Not_A Brand";v="8", "Chromium";v="120", "Google Chrome";v="120"',
+        'Sec-Ch-Ua-Mobile': '?0',
+        'Sec-Ch-Ua-Platform': '"Windows"',
+        'Sec-Fetch-Dest': 'document',
+        'Sec-Fetch-Mode': 'navigate',
+        'Sec-Fetch-Site': 'same-origin',
+        'Upgrade-Insecure-Requests': '1'
+    };
+
     // 먼저 타자 페이지 시도
     let playerUrl = `https://www.koreabaseball.com/Record/Player/HitterDetail/Basic.aspx?playerId=${playerId}`;
     let response = await fetch(playerUrl, {
-        headers: {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36',
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-            'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7'
-        }
+        headers: playerHeaders
     });
     
     if (!response.ok) {
@@ -381,11 +419,7 @@ async function fetchPlayerDetailWithRetry(playerId, attempt) {
         console.log(`[DEBUG] Attempt ${attempt} - Not found in hitter page, trying pitcher page`);
         playerUrl = `https://www.koreabaseball.com/Record/Player/PitcherDetail/Basic.aspx?playerId=${playerId}`;
         response = await fetch(playerUrl, {
-            headers: {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36',
-                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-                'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7'
-            }
+            headers: playerHeaders
         });
         
         if (!response.ok) {
