@@ -269,25 +269,8 @@ class KBOQuizGame {
     
     selectChallengeMode() {
         this.challengeMode.isActive = true;
-        
-        // 기본 설정으로 바로 시작
-        this.gameData.playerName = '연속 도전자';
-        this.gameData.year = '2024';
-        this.gameData.team = 'HH'; // 한화 이글스 기본값
-        this.challengeMode.difficulty = 'normal';
-        
-        // 난이도별 설정
-        const difficultySettings = {
-            easy: { timeLimit: 90, maxHints: 6 },
-            normal: { timeLimit: 60, maxHints: 3 },
-            hard: { timeLimit: 30, maxHints: 1 }
-        };
-        
-        this.challengeMode.timeLimit = difficultySettings[this.challengeMode.difficulty].timeLimit;
-        this.challengeMode.maxHints = difficultySettings[this.challengeMode.difficulty].maxHints;
-        
-        // 바로 게임 시작
-        this.startChallengeGame();
+        this.showScreen('challenge-setup-screen');
+        this.loadChallengeTeamsForYear();
     }
     
     // 난이도 선택 메소드
@@ -552,22 +535,63 @@ class KBOQuizGame {
     
     // 연속 도전 모드 게임 시작
     async startChallengeGame() {
+        // 입력값 검증
+        const playerName = document.getElementById('challenge-player-name').value.trim();
+        const year = document.getElementById('challenge-year').value;
+        const team = document.getElementById('challenge-team').value;
+        const difficulty = this.challengeMode.difficulty;
+        
+        if (!playerName) {
+            alert('닉네임을 입력해주세요.');
+            return;
+        }
+        
+        if (!team) {
+            alert('팀을 선택해주세요.');
+            return;
+        }
+        
+        // 버튼 비활성화 (따닥 방지)
+        const startButton = document.getElementById('start-challenge');
+        startButton.disabled = true;
+        startButton.textContent = '로딩 중...';
+        
         // 연속 도전 모드 초기화
         this.challengeMode.isActive = true;
         this.challengeMode.players = [];
         this.challengeMode.currentIndex = 0;
         this.challengeMode.totalScore = 0;
+        this.challengeMode.difficulty = difficulty;
         this.challengeMode.results = [];
         this.challengeMode.startTime = Date.now();
         
+        // 난이도별 설정
+        const difficultySettings = {
+            easy: { timeLimit: 90, maxHints: 6 },
+            normal: { timeLimit: 60, maxHints: 3 },
+            hard: { timeLimit: 30, maxHints: 1 }
+        };
+        
+        this.challengeMode.timeLimit = difficultySettings[difficulty].timeLimit;
+        this.challengeMode.maxHints = difficultySettings[difficulty].maxHints;
+        
+        this.gameData.playerName = playerName;
+        this.gameData.year = year;
+        this.gameData.team = team;
+        
         try {
-            // 5명의 선수 데이터를 미리 로드
+            // 5명의 선수 데이터를 미리 로드 (상세 정보 포함)
             await this.loadChallengePlayersData();
             this.startChallengeRound();
         } catch (error) {
             console.error('연속 도전 모드 시작 실패:', error);
             alert(error.message);
-            this.showScreen('intro-screen');
+            
+            // 버튼 복구
+            startButton.disabled = false;
+            startButton.textContent = '연속 도전 시작!';
+            
+            this.showScreen('challenge-setup-screen');
         }
     }
     
@@ -605,10 +629,35 @@ class KBOQuizGame {
                         
                         // 중복 제거
                         if (!players.find(p => p.playerId === player.playerId)) {
-                            players.push({
-                                ...player,
-                                gameDate: randomDate
-                            });
+                            try {
+                                // 각 선수의 상세 정보도 미리 가져오기
+                                const playerDetailResponse = await fetch(`http://localhost:3001/api/player/${player.playerId}`, {
+                                    method: 'GET',
+                                    headers: {
+                                        'Cache-Control': 'no-cache'
+                                    }
+                                });
+                                
+                                if (playerDetailResponse.ok) {
+                                    const playerDetailData = await playerDetailResponse.json();
+                                    
+                                    if (playerDetailData.success && playerDetailData.player.name) {
+                                        const detailedPlayer = this.formatPlayerData(playerDetailData.player);
+                                        players.push({
+                                            ...detailedPlayer,
+                                            gameDate: randomDate,
+                                            playerId: player.playerId
+                                        });
+                                    }
+                                }
+                            } catch (error) {
+                                console.error(`선수 상세 정보 로딩 실패 (${player.playerId}):`, error);
+                                // 상세 정보 실패 시 기본 정보만 저장
+                                players.push({
+                                    ...player,
+                                    gameDate: randomDate
+                                });
+                            }
                         }
                     }
                 }
@@ -664,7 +713,7 @@ class KBOQuizGame {
     }
     
     // 연속 도전 라운드 시작
-    async startChallengeRound() {
+    startChallengeRound() {
         const currentPlayer = this.challengeMode.players[this.challengeMode.currentIndex];
         
         if (!currentPlayer) {
@@ -672,62 +721,37 @@ class KBOQuizGame {
             return;
         }
         
+        // 이미 로드된 선수 정보 사용
+        this.currentPlayer = currentPlayer;
+        this.currentScore = 6;
+        this.hintsShown = 0;
+        this.challengeMode.remainingTime = this.challengeMode.timeLimit;
+        
         // 화면 전환
         this.showScreen('challenge-game-screen');
-        this.showChallengeLoading(true, '🎯 선수 정보를 불러오는 중...', `선택하신 팀의 선수 상세 정보를 가져오고 있습니다.`, 50);
+        this.showChallengeLoading(false);
         
-        try {
-            // 선수 상세 정보 가져오기
-            const playerDetailResponse = await fetch(`http://localhost:3001/api/player/${currentPlayer.playerId}`, {
-                method: 'GET',
-                headers: {
-                    'Cache-Control': 'no-cache'
-                }
-            });
-            
-            if (!playerDetailResponse.ok) {
-                throw new Error('선수 상세 정보를 불러올 수 없습니다');
-            }
-            
-            const playerDetailData = await playerDetailResponse.json();
-            
-            if (!playerDetailData.success) {
-                throw new Error('선수 상세 정보를 불러올 수 없습니다');
-            }
-            
-            // 상세 정보로 현재 선수 업데이트 (gameDate 유지)
-            const formattedPlayer = this.formatPlayerData(playerDetailData.player);
-            this.currentPlayer = {
-                ...formattedPlayer,
-                gameDate: currentPlayer.gameDate // 원래 gameDate 유지
-            };
-            this.currentScore = 6;
-            this.hintsShown = 0;
-            this.challengeMode.remainingTime = this.challengeMode.timeLimit;
-            
-            // 로딩 완료 표시
-            this.updateChallengeLoadingMessage('✅ 완료!', '게임을 시작합니다.', 100);
-            
-            // 잠시 후 로딩 화면 숨기기
-            setTimeout(() => {
-                this.showChallengeLoading(false);
-            }, 500);
-            
-            // UI 업데이트
-            this.updateChallengeUI();
-            
-            // 타이머 시작
-            this.startChallengeTimer();
-            
-            // 첫 번째 힌트 표시
-            this.showChallengeHint();
-            
-        } catch (error) {
-            console.error('선수 상세 정보 로딩 실패:', error);
-            this.showChallengeLoading(false);
-            alert('선수 정보를 불러오는데 실패했습니다. 다시 시도해주세요.');
-            this.resetChallengeGame();
+        // 버튼 복구 (다음 문제를 위해)
+        const submitButton = document.getElementById('challenge-submit-answer');
+        if (submitButton) {
+            submitButton.disabled = false;
+            submitButton.textContent = '정답 제출';
         }
+        
+        // 입력창 초기화
+        const answerInput = document.getElementById('challenge-answer-input');
+        if (answerInput) {
+            answerInput.value = '';
+        }
+        
+        // UI 업데이트
+        this.updateChallengeUI();
+        
+        // 타이머 시작
+        this.startChallengeTimer();
+        
+        // 첫 번째 힌트 표시
+        this.showChallengeHint();
     }
     
     // 연속 도전 모드 UI 업데이트
@@ -825,6 +849,11 @@ class KBOQuizGame {
         const userAnswer = document.getElementById('challenge-answer-input').value.trim();
         if (!userAnswer) return;
         
+        // 버튼 비활성화 (따닥 방지)
+        const submitButton = document.getElementById('challenge-submit-answer');
+        submitButton.disabled = true;
+        submitButton.textContent = '처리 중...';
+        
         const isCorrect = userAnswer === this.currentPlayer.name;
         
         if (isCorrect) {
@@ -843,6 +872,10 @@ class KBOQuizGame {
                 alert('틀렸습니다! 힌트를 확인해보세요.');
                 this.showChallengeNextHint();
                 document.getElementById('challenge-answer-input').value = '';
+                
+                // 버튼 복구
+                submitButton.disabled = false;
+                submitButton.textContent = '정답 제출';
             }
         }
     }
@@ -873,11 +906,28 @@ class KBOQuizGame {
             // 모든 선수 완료
             this.finishChallengeGame(true);
         } else {
-            // 다음 선수 진행
-            setTimeout(async () => {
-                await this.startChallengeRound();
-            }, 1000);
+            // 정답 화면 2초 표시 후 다음 선수 진행
+            this.showChallengeCorrectScreen();
         }
+    }
+    
+    // 연속 도전 모드 정답 화면 표시
+    showChallengeCorrectScreen() {
+        const currentIndex = this.challengeMode.currentIndex;
+        const playerName = this.challengeMode.results[currentIndex - 1].playerName;
+        const score = this.challengeMode.results[currentIndex - 1].score;
+        
+        // 로딩 화면을 정답 화면으로 사용
+        this.showChallengeLoading(true, 
+            `🎉 정답입니다!`, 
+            `${playerName} 선수 맞추기 성공! (+${score}점)`, 
+            100
+        );
+        
+        // 2초 후 다음 라운드 시작
+        setTimeout(() => {
+            this.startChallengeRound();
+        }, 2000);
     }
     
     // 연속 도전 모드 오답 처리 (모든 힌트 다 본 경우)
@@ -981,9 +1031,26 @@ class KBOQuizGame {
         
         document.getElementById('challenge-answer-input').value = '';
         
+        // 버튼들 복구
+        const startButton = document.getElementById('start-challenge');
+        if (startButton) {
+            startButton.disabled = false;
+            startButton.textContent = '연속 도전 시작!';
+        }
+        
+        const submitButton = document.getElementById('challenge-submit-answer');
+        if (submitButton) {
+            submitButton.disabled = false;
+            submitButton.textContent = '정답 제출';
+        }
+        
         // 입력 필드들 초기화
-        document.getElementById('challenge-player-name').value = '';
-        document.getElementById('challenge-team').value = '';
+        const playerNameInput = document.getElementById('challenge-player-name');
+        const teamInput = document.getElementById('challenge-team');
+        
+        if (playerNameInput) playerNameInput.value = '';
+        if (teamInput) teamInput.value = '';
+        
         document.querySelectorAll('.team-logo').forEach(logo => {
             logo.classList.remove('selected');
         });
