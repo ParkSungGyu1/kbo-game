@@ -10,6 +10,65 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// 유틸리티 함수들 정의
+const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+function extractAspNetParams(html) {
+    const $ = cheerio.load(html);
+    return {
+        viewState: $('input[name="__VIEWSTATE"]').val(),
+        eventValidation: $('input[name="__EVENTVALIDATION"]').val()
+    };
+}
+
+function parsePlayers(asyncHtml) {
+    try {
+        let html = asyncHtml;
+        
+        // ASP.NET AJAX 응답 파싱
+        if (asyncHtml.includes('|') && asyncHtml.includes('updatePanel')) {
+            const parts = asyncHtml.split('|');
+            for (let i = 0; i < parts.length; i++) {
+                if (parts[i] === 'updatePanel' && parts[i + 1] && parts[i + 1].includes('udpRecord')) {
+                    try {
+                        html = decodeURIComponent(parts[i + 2]);
+                        break;
+                    } catch (e) {
+                        html = parts[i + 2];
+                        break;
+                    }
+                }
+            }
+        }
+        
+        const $ = cheerio.load(html);
+        const players = [];
+        
+        // 선수 테이블 파싱
+        $('table.tNData tbody tr').each((_, row) => {
+            const $row = $(row);
+            const href = $row.find('td:nth-child(2) a').attr('href') || '';
+            const match = href.match(/playerId=(\d+)/);
+            
+            if (match) {
+                players.push({
+                    playerId: match[1],
+                    name: $row.find('td:nth-child(2)').text().trim(),
+                    backNo: $row.find('td:nth-child(1)').text().trim(),
+                    position: $row.find('td:nth-child(3)').text().trim(),
+                    throwHand: $row.find('td:nth-child(4)').text().trim(),
+                    birthday: $row.find('td:nth-child(5)').text().trim(),
+                    physique: $row.find('td:nth-child(6)').text().trim()
+                });
+            }
+        });
+        
+        return { success: true, players };
+    } catch (error) {
+        return { success: false, players: [], error: error.message };
+    }
+}
+
 // KBO 구단 목록 조회 엔드포인트
 app.get('/api/teams/:year', async (req, res) => {
     try {
@@ -157,61 +216,81 @@ app.post('/api/players', async (req, res) => {
 
 // proxy-server.js (일부 발췌 및 패치 적용된 fetchPlayersWithRetry 함수)
 
-async function fetchPlayersWithRetry({ year, team, date }, retries = 3) {
+async function fetchPlayersWithRetry(requestBody, attempt) {
+    const { year, team, date } = requestBody;
     const registerUrl = 'https://www.koreabaseball.com/Player/Register.aspx';
+    
+    console.log(`[DEBUG] Attempt ${attempt} - Fetching players for:`, { year, team, date });
   
     try {
-      // 1차 요청: VIEWSTATE, EVENTVALIDATION 추출용
-      const initialResponse = await fetch(registerUrl, {
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0 Safari/537.36',
-          'Referer': 'https://www.koreabaseball.com/Player/Register.aspx',
-          'Origin': 'https://www.koreabaseball.com'
+        // 1차 요청: VIEWSTATE, EVENTVALIDATION 추출용
+        const initialResponse = await fetch(registerUrl, {
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+                'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7',
+                'Cache-Control': 'no-cache'
+            }
+        });
+        
+        if (!initialResponse.ok) {
+            throw new Error(`Initial page load failed: ${initialResponse.status}`);
         }
-      });
-  
-      const html = await initialResponse.text();
-      const { viewState, eventValidation } = extractAspNetParams(html);
-  
-      if (!viewState || !eventValidation) throw new Error('ASP.NET hidden params 추출 실패');
-  
-      const formData = new URLSearchParams({
-        '__EVENTTARGET': '',
-        '__EVENTARGUMENT': '',
-        '__VIEWSTATE': viewState,
-        '__EVENTVALIDATION': eventValidation,
-        'ScriptManager1': 'ctl00$cphContents$cphContents$cphContents$udpRecord|ctl00$cphContents$cphContents$cphContents$btnSearch',
-        '__ASYNCPOST': 'true',
-        'ctl00$cphContents$cphContents$cphContents$hfSearchTeam': team,
-        'ctl00$cphContents$cphContents$cphContents$hfSearchDate': date,
-        'ctl00$cphContents$cphContents$cphContents$btnSearch': '조회'
-      });
-  
-      // 2차 요청: 실제 선수 데이터 요청
-      const response = await fetch(registerUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
-          'X-Requested-With': 'XMLHttpRequest',
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0 Safari/537.36',
-          'Referer': 'https://www.koreabaseball.com/Player/Register.aspx',
-          'Origin': 'https://www.koreabaseball.com'
-        },
-        body: formData
-      });
-  
-      const asyncHtml = await response.text();
-      return parsePlayers(asyncHtml);
+        
+        const html = await initialResponse.text();
+        const { viewState, eventValidation } = extractAspNetParams(html);
+        
+        if (!viewState || !eventValidation) {
+            throw new Error('ASP.NET ViewState 추출 실패');
+        }
+        
+        // 날짜 형식 변환: 2024-05-15 -> 20240515
+        const formattedDate = date.replace(/-/g, '');
+        
+        const formData = new URLSearchParams({
+            'ctl00$ctl00$ctl00$cphContents$cphContents$cphContents$ScriptManager1': 'ctl00$ctl00$ctl00$cphContents$cphContents$cphContents$udpRecord|ctl00$ctl00$ctl00$cphContents$cphContents$cphContents$btnCalendarSelect',
+            'ctl00$ctl00$ctl00$cphContents$cphContents$cphContents$hfSearchTeam': team,
+            'ctl00$ctl00$ctl00$cphContents$cphContents$cphContents$hfSearchDate': formattedDate,
+            '__EVENTTARGET': 'ctl00$ctl00$ctl00$cphContents$cphContents$cphContents$btnCalendarSelect',
+            '__EVENTARGUMENT': '',
+            '__VIEWSTATE': viewState,
+            '__EVENTVALIDATION': eventValidation,
+            '__ASYNCPOST': 'true'
+        });
+        
+        // 2차 요청: 실제 선수 데이터 요청
+        const response = await fetch(registerUrl, {
+            method: 'POST',
+            headers: {
+                'Accept': '*/*',
+                'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7',
+                'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+                'Origin': 'https://www.koreabaseball.com',
+                'Referer': 'https://www.koreabaseball.com/Player/Register.aspx',
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'X-MicrosoftAjax': 'Delta=true',
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: formData.toString()
+        });
+        
+        if (!response.ok) {
+            throw new Error(`POST request failed: ${response.status}`);
+        }
+        
+        const asyncHtml = await response.text();
+        console.log(`[DEBUG] Attempt ${attempt} - Response length:`, asyncHtml.length);
+        
+        const result = parsePlayers(asyncHtml);
+        console.log(`[DEBUG] Attempt ${attempt} - Parsed ${result.players.length} players`);
+        
+        return result;
+        
     } catch (error) {
-      if (retries > 0) {
-        console.warn(`[RETRY] fetchPlayers 실패, 재시도 남음: ${retries}회`);
-        await delay(1000);
-        return fetchPlayersWithRetry({ year, team, date }, retries - 1);
-      } else {
+        console.error(`[DEBUG] Attempt ${attempt} error:`, error.message);
         throw error;
-      }
     }
-  }
+}
   
 
 // 날짜 유효성 검증 함수
