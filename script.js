@@ -90,47 +90,111 @@ class KBOQuizGame {
         window.openInSafari = function() {
             const currentUrl = window.location.href;
             
-            // 여러 방법을 순차적으로 시도
-            const safariMethods = [
-                // 방법 1: FTP 스킴 사용 (iOS에서 Safari로 리다이렉트)
-                `ftp://${currentUrl.replace('https://', '').replace('http://', '')}`,
-                // 방법 2: 기본 브라우저에서 열기
-                currentUrl,
-                // 방법 3: 데이터 URL로 리다이렉트
-                `data:text/html,<script>window.location.href="${currentUrl}"</script>`
-            ];
-            
-            // iOS Safari 전용 처리
+            // iOS 감지
             const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+            
             if (isIOS) {
-                // iOS에서는 특별한 처리
+                // iOS에서 여러 방법 시도
                 try {
-                    // 방법 1: 새 창으로 열기 (Safari가 기본 브라우저인 경우)
-                    const newWindow = window.open(currentUrl, '_blank');
-                    if (!newWindow) {
-                        // 팝업이 차단된 경우 클립보드 복사로 대체
-                        if (navigator.clipboard) {
-                            navigator.clipboard.writeText(currentUrl).then(() => {
-                                alert('Safari에서 열 수 없어 링크를 복사했습니다.\nSafari를 열고 주소창에 붙여넣기 하세요.');
-                            });
-                        } else {
-                            alert(`Safari에서 열 수 없습니다.\n아래 링크를 복사해서 Safari 주소창에 붙여넣으세요:\n\n${currentUrl}`);
+                    // 1. Safari URL 스킴 시도 (iOS 13+에서 제한됨)
+                    const safariUrl = `x-safari-${currentUrl}`;
+                    const safariWindow = window.open(safariUrl, '_blank');
+                    
+                    // 즉시 스킴이 작동하지 않을 수 있으므로 fallback 제공
+                    setTimeout(() => {
+                        if (!safariWindow || safariWindow.closed) {
+                            // Safari 스킴이 작동하지 않은 경우 클립보드 복사로 fallback
+                            if (navigator.clipboard && navigator.clipboard.writeText) {
+                                navigator.clipboard.writeText(currentUrl).then(() => {
+                                    alert('📱 Safari에서 열기:\n\n1. 링크가 복사되었습니다\n2. 홈 화면으로 이동하세요\n3. Safari 앱을 터치하세요\n4. 주소창을 터치하고 붙여넣기(길게 누르기) 하세요');
+                                }).catch(() => {
+                                    this.showSafariInstructions(currentUrl);
+                                });
+                            } else {
+                                this.showSafariInstructions(currentUrl);
+                            }
                         }
-                    }
-                } catch (e) {
-                    // 오류 발생 시 클립보드 복사
-                    if (navigator.clipboard) {
+                    }, 1000);
+                    
+                } catch (error) {
+                    // 에러 발생 시 클립보드 복사로 fallback
+                    if (navigator.clipboard && navigator.clipboard.writeText) {
                         navigator.clipboard.writeText(currentUrl).then(() => {
-                            alert('링크를 복사했습니다.\nSafari를 열고 주소창에 붙여넣기 하세요.');
+                            alert('📱 Safari에서 열기:\n\n1. 링크가 복사되었습니다\n2. 홈 화면으로 이동하세요\n3. Safari 앱을 터치하세요\n4. 주소창을 터치하고 붙여넣기(길게 누르기) 하세요');
+                        }).catch(() => {
+                            this.showSafariInstructions(currentUrl);
                         });
                     } else {
-                        alert(`아래 링크를 복사해서 Safari 주소창에 붙여넣으세요:\n\n${currentUrl}`);
+                        this.showSafariInstructions(currentUrl);
                     }
                 }
             } else {
-                // 안드로이드나 기타 환경에서는 기본 브라우저로 열기
-                window.open(currentUrl, '_blank') || alert(`링크: ${currentUrl}`);
+                // Android나 기타 환경
+                // 기본 브라우저로 열기 시도
+                const opened = window.open(currentUrl, '_blank');
+                if (!opened || opened.closed) {
+                    // 팝업 차단된 경우
+                    if (navigator.clipboard && navigator.clipboard.writeText) {
+                        navigator.clipboard.writeText(currentUrl).then(() => {
+                            alert('🌐 브라우저에서 열기:\n\n1. 링크가 복사되었습니다\n2. 브라우저를 열고 주소창에 붙여넣기 하세요');
+                        });
+                    } else {
+                        alert(`🌐 아래 링크를 복사해서 브라우저에서 열어주세요:\n\n${currentUrl}`);
+                    }
+                }
             }
+        };
+        
+        // Safari 안내 모달 표시 함수
+        window.showSafariInstructions = function(url) {
+            const modal = document.createElement('div');
+            modal.style.cssText = `
+                position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+                background: rgba(0,0,0,0.8); display: flex; align-items: center;
+                justify-content: center; z-index: 10000; font-family: inherit;
+            `;
+            
+            const content = document.createElement('div');
+            content.style.cssText = `
+                background: white; padding: 25px; border-radius: 15px;
+                max-width: 350px; width: 90%; text-align: center;
+                box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            `;
+            
+            content.innerHTML = `
+                <h3 style="color: #007aff; margin-bottom: 20px; font-size: 18px;">📱 Safari에서 열기</h3>
+                <div style="text-align: left; line-height: 1.6; margin-bottom: 20px;">
+                    <p style="margin: 10px 0; font-weight: bold; color: #333;">방법 1: 링크 복사</p>
+                    <p style="margin: 5px 0; font-size: 14px; color: #666;">아래 링크를 길게 눌러 복사 → Safari에서 붙여넣기</p>
+                    <div style="background: #f5f5f5; padding: 10px; border-radius: 8px; margin: 10px 0; word-break: break-all; font-size: 12px; border: 1px solid #ddd;">
+                        ${url}
+                    </div>
+                    <p style="margin: 10px 0; font-weight: bold; color: #333;">방법 2: 직접 이동</p>
+                    <p style="margin: 5px 0; font-size: 14px; color: #666;">1. 홈 화면으로 이동</p>
+                    <p style="margin: 5px 0; font-size: 14px; color: #666;">2. Safari 앱 실행</p>
+                    <p style="margin: 5px 0; font-size: 14px; color: #666;">3. 주소창에 링크 붙여넣기</p>
+                </div>
+                <div style="display: flex; gap: 10px; justify-content: center;">
+                    <button onclick="navigator.clipboard && navigator.clipboard.writeText('${url}').then(() => alert('링크가 복사되었습니다!')); this.parentElement.parentElement.parentElement.remove();" 
+                            style="background: #007aff; color: white; border: none; padding: 12px 20px; border-radius: 8px; cursor: pointer; font-size: 14px;">
+                        링크 복사
+                    </button>
+                    <button onclick="this.parentElement.parentElement.parentElement.remove();" 
+                            style="background: #666; color: white; border: none; padding: 12px 20px; border-radius: 8px; cursor: pointer; font-size: 14px;">
+                        닫기
+                    </button>
+                </div>
+            `;
+            
+            modal.appendChild(content);
+            document.body.appendChild(modal);
+            
+            // 모달 외부 클릭 시 닫기
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) {
+                    modal.remove();
+                }
+            });
         };
         
         // 메인 컨테이너에 상단 마진 추가
