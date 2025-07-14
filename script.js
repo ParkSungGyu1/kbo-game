@@ -39,9 +39,6 @@ class KBOQuizGame {
             
             // 카카오톡 인앱 브라우저용 설정
             document.body.classList.add('kakaotalk-inapp');
-            
-            // 외부 브라우저 열기 버튼 추가
-            this.addExternalBrowserButton();
         }
         
         if (isInApp) {
@@ -50,36 +47,6 @@ class KBOQuizGame {
         }
     }
     
-    addExternalBrowserButton() {
-        const button = document.createElement('div');
-        button.className = 'external-browser-btn';
-        button.innerHTML = `
-            <p>⚠️ 카카오톡에서 일부 기능이 제한될 수 있습니다</p>
-            <button onclick="window.open(window.location.href, '_blank')">
-                외부 브라우저에서 열기
-            </button>
-        `;
-        button.style.cssText = `
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            background: #ffeb3b;
-            padding: 10px;
-            text-align: center;
-            font-size: 12px;
-            z-index: 9999;
-            border-bottom: 1px solid #ddd;
-        `;
-        
-        document.body.insertBefore(button, document.body.firstChild);
-        
-        // 메인 컨테이너에 상단 마진 추가
-        const container = document.querySelector('.container');
-        if (container) {
-            container.style.marginTop = '80px';
-        }
-    }
     
     setOgUrl() {
         // OG URL을 현재 페이지 URL로 설정
