@@ -1,0 +1,29 @@
+{
+  "name": "kbo-quiz",
+  "version": "1.0.0",
+  "description": "KBO 선수 맞추기 퀴즈 게임",
+  "main": "index.html",
+  "scripts": {
+    "start": "node proxy-server.js",
+    "dev": "concurrently \"node proxy-server.js\" \"npx http-server . -p 3000 -o\"",
+    "serve": "npx http-server . -p 3000 -o"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "cors": "^2.8.5",
+    "node-fetch": "^2.6.7",
+    "cheerio": "^1.0.0-rc.12"
+  },
+  "devDependencies": {
+    "concurrently": "^7.6.0",
+    "http-server": "^14.1.1"
+  },
+  "keywords": [
+    "kbo",
+    "baseball",
+    "quiz",
+    "game"
+  ],
+  "author": "",
+  "license": "MIT"
+}

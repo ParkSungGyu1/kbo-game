@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>⚾️ KBO 선수 맞추기 퀴즈!</title>
+    
+    <!-- Open Graph 메타 태그 -->
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="⚾️ KBO 선수 맞추기 퀴즈!">
+    <meta property="og:description" content="당신은 야잘알 입니까?">
+    <meta property="og:image" content="https://6ptotvmi5753.edge.naverncp.com/KBO_IMAGE/KBOHome/resources/images/common/h1_logo.png">
+    <meta property="og:url" content="">
+    <meta property="og:site_name" content="KBO 선수 맞추기 퀴즈">
+    
+    <!-- Twitter Card 메타 태그 -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="⚾️ KBO 선수 맞추기 퀴즈!">
+    <meta name="twitter:description" content="당신은 야잘알 입니까?">
+    <meta name="twitter:image" content="https://6ptotvmi5753.edge.naverncp.com/KBO_IMAGE/KBOHome/resources/images/common/h1_logo.png">
+    
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>KBO 선수 맞추기 퀴즈</h1>
+            <p class="subtitle">선수 정보를 보고 누구인지 맞춰보세요!</p>
+        </header>
+
+        <main>
+            <!-- 게임 설명 화면 -->
+            <div id="intro-screen" class="screen active">
+                <div class="intro-content">
+                    <div class="intro-header">
+                        <h2>🏟️ KBO 선수 맞추기 퀴즈</h2>
+                        <p class="intro-subtitle">선수 정보를 보고 누구인지 맞춰보세요!</p>
+                    </div>
+                    
+                    <div class="game-rules">
+                        <h3>📋 게임 방법</h3>
+                        <ul>
+                            <li><strong>6점</strong>에서 시작하여 힌트를 볼 때마다 <strong>1점씩 차감</strong></li>
+                            <li>첫 번째 힌트인 <strong>생년월일</strong>은 자동으로 표시됩니다</li>
+                            <li>추가 힌트: 지명순위 → 포지션 → 경력 → 등번호 → 사진</li>
+                            <li>선수 이름을 정확히 입력하면 정답!</li>
+                            <li>모든 힌트를 다 봐도 못 맞히면 게임 종료</li>
+                        </ul>
+                    </div>
+                    
+                    <div class="game-features">
+                        <h3>✨ 특징</h3>
+                        <ul>
+                            <li>실제 KBO 경기 데이터를 기반으로 한 선수 정보</li>
+                            <li>연도별, 구단별 선수 선택 가능</li>
+                            <li>경기가 있었던 날짜의 엔트리 기준</li>
+                            <li>결과 공유 기능으로 친구들과 경쟁</li>
+                        </ul>
+                    </div>
+                    
+                    <button id="go-to-setup" class="start-button">🚀 시작하러 가기</button>
+                </div>
+            </div>
+
+            <!-- 초기 설정 화면 -->
+            <div id="setup-screen" class="screen">
+                <div class="setup-form">
+                    <div class="form-group">
+                        <label for="player-name">닉네임 입력</label>
+                        <input type="text" id="player-name" placeholder="닉네임을 입력하세요">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="game-year">연도 선택</label>
+                        <select id="game-year">
+                            <option value="2024">2024년</option>
+                            <option value="2023">2023년</option>
+                            <option value="2022">2022년</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="game-team">구단 선택</label>
+                        <div id="team-logos-container" class="team-logos">
+                            <!-- 팀 로고들이 동적으로 추가됩니다 -->
+                        </div>
+                        <input type="hidden" id="game-team" value="">
+                    </div>
+                    
+                    <button id="start-game" disabled>게임 시작</button>
+                </div>
+            </div>
+
+            <!-- 게임 화면 -->
+            <div id="game-screen" class="screen">
+                <div class="game-info">
+                    <div class="score-display">점수: <span id="current-score">6</span>점</div>
+                    <div class="game-date" id="game-date"></div>
+                </div>
+
+                <div class="hints-container" id="hints-container">
+                    <!-- 힌트들이 동적으로 추가됩니다 -->
+                </div>
+
+                <div class="answer-section">
+                    <input type="text" id="answer-input" placeholder="선수 이름을 입력하세요">
+                    <button id="submit-answer">정답 제출</button>
+                    <button id="get-hint">힌트 보기</button>
+                </div>
+
+                <div class="loading" id="loading">
+                    <p id="loading-message">선수 정보를 불러오는 중...</p>
+                    <p id="loading-detail"></p>
+                </div>
+            </div>
+
+            <!-- 결과 화면 -->
+            <div id="result-screen" class="screen">
+                <div class="result-content">
+                    <h2 id="result-title"></h2>
+                    <div class="player-info">
+                        <img id="result-player-image" src="" alt="선수 사진">
+                        <div class="player-details">
+                            <h3 id="result-player-name"></h3>
+                            <p id="result-score"></p>
+                        </div>
+                    </div>
+                    <div class="share-section">
+                        <button id="share-result">친구에게 공유하기</button>
+                        <button id="play-again">다시 플레이</button>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
