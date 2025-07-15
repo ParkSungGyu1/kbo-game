@@ -337,6 +337,24 @@ app.get('/api/teams/:year', async (req, res) => {
 
 // KBO 선수 목록 크롤링 엔드포인트 (개선된 재시도 로직)
 app.post('/api/players', async (req, res) => {
+    const { year, teamCode, date } = req.body;
+    
+    // 미래 날짜 검증
+    if (date) {
+        const requestDate = new Date(date.slice(0, 4), date.slice(4, 6) - 1, date.slice(6, 8));
+        const today = new Date();
+        today.setHours(0, 0, 0, 0); // 시간 부분 제거
+        
+        if (requestDate > today) {
+            console.log(`[DEBUG] Future date rejected: ${date} (${requestDate.toISOString().split('T')[0]} > ${today.toISOString().split('T')[0]})`);
+            return res.status(400).json({ 
+                success: false, 
+                error: '미래 날짜는 검색할 수 없습니다.',
+                players: [] 
+            });
+        }
+    }
+    
     const maxRetries = 5; // 재시도 횟수 증가
     let lastError = null;
     let bestResult = null; // 가장 좋은 결과 저장

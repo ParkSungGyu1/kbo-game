@@ -873,6 +873,11 @@ class KBOQuizGame {
         
         const playersData = await playersResponse.json();
         
+        // 미래 날짜 에러 체크
+        if (!playersData.success && playersData.error && playersData.error.includes('미래 날짜')) {
+            throw new Error(playersData.error);
+        }
+        
         if (!playersData.success || !playersData.players || playersData.players.length === 0) {
             throw new Error('선수 데이터가 없습니다');
         }
@@ -1317,9 +1322,21 @@ class KBOQuizGame {
     
     generateRandomDate(year) {
         const start = new Date(year, 3, 1); // 4월 1일
-        const end = new Date(year, 7, 31);   // 8월 31일
+        let end = new Date(year, 7, 31);   // 8월 31일
+        
+        // 오늘 날짜보다 미래가 되지 않도록 제한
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        if (end > today) {
+            end = today;
+        }
+        
+        // 시작 날짜가 종료 날짜보다 나중인 경우 (미래 년도인 경우)
+        if (start > end) {
+            throw new Error('해당 연도는 아직 경기 데이터가 없습니다.');
+        }
+        
         const dates = [];
-
         for (let time = start.getTime(); time <= end.getTime(); time += 86400000) {
             const d = new Date(time);
             const day = d.getDay();
@@ -1327,6 +1344,10 @@ class KBOQuizGame {
                 const yyyyMMdd = d.toISOString().split('T')[0]; // yyyy-MM-dd 형식
                 dates.push(yyyyMMdd);
             }
+        }
+        
+        if (dates.length === 0) {
+            throw new Error('해당 연도는 아직 경기 데이터가 없습니다.');
         }
 
         const randomIndex = Math.floor(Math.random() * dates.length);
@@ -1366,6 +1387,11 @@ class KBOQuizGame {
                 });
                 
                 const playersData = await playersResponse.json();
+                
+                // 미래 날짜 에러 체크
+                if (!playersData.success && playersData.error && playersData.error.includes('미래 날짜')) {
+                    throw new Error(playersData.error);
+                }
                 
                 if (playersData.success && playersData.players.length > 0) {
                     this.updateLoadingMessage('선수 상세 정보 조회 중...', '잠시만 기다려주세요');
