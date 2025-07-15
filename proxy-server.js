@@ -854,6 +854,44 @@ function getRandomKboGameDate(year) {
 }
 
 
+// 네이버 검색 API 엔드포인트
+app.get('/api/search-player-image/:playerName', async (req, res) => {
+    const { playerName } = req.params;
+    
+    try {
+        console.log(`[DEBUG] Searching image for player: ${playerName}`);
+        
+        const query = encodeURIComponent(`${playerName}사진`);
+        const url = `https://openapi.naver.com/v1/search/image?query=${query}&display=1&start=1&sort=sim&filter=all`;
+        
+        const response = await fetch(url, {
+            method: 'GET',
+            headers: {
+                'X-Naver-Client-Id': '3ZETfZY1ZjHaMhbs2hcf',
+                'X-Naver-Client-Secret': 'UnW0hfQJf8'
+            }
+        });
+        
+        if (!response.ok) {
+            throw new Error(`네이버 API 오류: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        if (data.items && data.items.length > 0) {
+            const thumbnail = data.items[0].thumbnail;
+            console.log(`[DEBUG] Found thumbnail for ${playerName}: ${thumbnail}`);
+            res.json({ success: true, thumbnail });
+        } else {
+            console.log(`[DEBUG] No image found for ${playerName}`);
+            res.json({ success: false, error: '이미지를 찾을 수 없습니다' });
+        }
+    } catch (error) {
+        console.error(`[DEBUG] 네이버 검색 API 오류:`, error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
 app.listen(PORT, () => {
     console.log(`Proxy server running on http://localhost:${PORT}`);
 });

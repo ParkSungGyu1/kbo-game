@@ -688,6 +688,26 @@ class KBOQuizGame {
         `;
     }
     
+    // 네이버 검색 API로 대체 이미지 조회
+    async searchPlayerImage(playerName) {
+        try {
+            console.log(`[DEBUG] Searching alternative image for: ${playerName}`);
+            const response = await fetch(`${this.apiBaseUrl}/api/search-player-image/${encodeURIComponent(playerName)}`);
+            const data = await response.json();
+            
+            if (data.success && data.thumbnail) {
+                console.log(`[DEBUG] Found alternative image: ${data.thumbnail}`);
+                return data.thumbnail;
+            } else {
+                console.log(`[DEBUG] No alternative image found for ${playerName}`);
+                return null;
+            }
+        } catch (error) {
+            console.error(`[DEBUG] Error searching alternative image:`, error);
+            return null;
+        }
+    }
+    
     // 연속 도전 모드 게임 시작
     async startChallengeGame() {
         // 입력값 검증
@@ -1535,6 +1555,23 @@ class KBOQuizGame {
             const img = document.createElement('img');
             img.src = this.currentPlayer.image;
             img.alt = '선수 사진';
+            
+            // 이미지 로드 실패 시 네이버 검색 API로 대체 이미지 조회
+            img.onerror = async () => {
+                console.log(`[DEBUG] Player image failed to load: ${this.currentPlayer.image}`);
+                const alternativeImage = await this.searchPlayerImage(this.currentPlayer.name);
+                
+                if (alternativeImage) {
+                    img.src = alternativeImage;
+                    img.onerror = () => {
+                        // 대체 이미지도 실패하면 기본 메시지 표시
+                        imageDiv.innerHTML = '<p style="text-align: center; color: #666; padding: 20px;">사진을 불러올 수 없습니다</p>';
+                    };
+                } else {
+                    imageDiv.innerHTML = '<p style="text-align: center; color: #666; padding: 20px;">사진을 불러올 수 없습니다</p>';
+                }
+            };
+            
             imageDiv.appendChild(img);
             valueDiv.appendChild(imageDiv);
         } else {
@@ -1576,6 +1613,22 @@ class KBOQuizGame {
         
         resultPlayerName.textContent = this.currentPlayer.name;
         resultPlayerImage.src = this.currentPlayer.image;
+        
+        // 결과 화면 이미지 로드 실패 시 네이버 검색 API로 대체 이미지 조회
+        resultPlayerImage.onerror = async () => {
+            console.log(`[DEBUG] Result player image failed to load: ${this.currentPlayer.image}`);
+            const alternativeImage = await this.searchPlayerImage(this.currentPlayer.name);
+            
+            if (alternativeImage) {
+                resultPlayerImage.src = alternativeImage;
+                resultPlayerImage.onerror = () => {
+                    // 대체 이미지도 실패하면 숨기기
+                    resultPlayerImage.style.display = 'none';
+                };
+            } else {
+                resultPlayerImage.style.display = 'none';
+            }
+        };
         
         if (isCorrect) {
             resultTitle.textContent = '정답입니다!';
