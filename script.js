@@ -688,18 +688,38 @@ class KBOQuizGame {
         `;
     }
     
+    // 팀 코드를 팀 이름으로 변환
+    getTeamNameFromCode(teamCode) {
+        const teamMap = {
+            'HH': '한화',
+            'LG': 'LG',
+            'LT': '롯데',
+            'HT': 'KIA',
+            'KT': 'KT',
+            'SK': 'SSG',
+            'NC': 'NC',
+            'SS': '삼성',
+            'OB': '두산',
+            'WO': '키움'
+        };
+        return teamMap[teamCode] || '';
+    }
+    
     // 네이버 검색 API로 대체 이미지 조회
-    async searchPlayerImage(playerName) {
+    async searchPlayerImage(playerName, teamName = null) {
         try {
-            console.log(`[DEBUG] Searching alternative image for: ${playerName}`);
-            const response = await fetch(`${this.apiBaseUrl}/api/search-player-image/${encodeURIComponent(playerName)}`);
+            // 팀 이름이 있으면 팀이름+선수이름+사진으로 검색
+            const searchQuery = teamName ? `${teamName}${playerName}사진` : `${playerName}사진`;
+            console.log(`[DEBUG] Searching alternative image with query: ${searchQuery}`);
+            
+            const response = await fetch(`${this.apiBaseUrl}/api/search-player-image/${encodeURIComponent(searchQuery)}`);
             const data = await response.json();
             
             if (data.success && data.thumbnail) {
                 console.log(`[DEBUG] Found alternative image: ${data.thumbnail}`);
                 return data.thumbnail;
             } else {
-                console.log(`[DEBUG] No alternative image found for ${playerName}`);
+                console.log(`[DEBUG] No alternative image found for ${searchQuery}`);
                 return null;
             }
         } catch (error) {
@@ -1559,7 +1579,10 @@ class KBOQuizGame {
             // 이미지 로드 실패 시 네이버 검색 API로 대체 이미지 조회
             img.onerror = async () => {
                 console.log(`[DEBUG] Player image failed to load: ${this.currentPlayer.image}`);
-                const alternativeImage = await this.searchPlayerImage(this.currentPlayer.name);
+                
+                // 팀 이름 가져오기 (gameData에서)
+                const teamName = this.getTeamNameFromCode(this.gameData.team);
+                const alternativeImage = await this.searchPlayerImage(this.currentPlayer.name, teamName);
                 
                 if (alternativeImage) {
                     img.src = alternativeImage;
@@ -1617,7 +1640,10 @@ class KBOQuizGame {
         // 결과 화면 이미지 로드 실패 시 네이버 검색 API로 대체 이미지 조회
         resultPlayerImage.onerror = async () => {
             console.log(`[DEBUG] Result player image failed to load: ${this.currentPlayer.image}`);
-            const alternativeImage = await this.searchPlayerImage(this.currentPlayer.name);
+            
+            // 팀 이름 가져오기 (gameData에서)
+            const teamName = this.getTeamNameFromCode(this.gameData.team);
+            const alternativeImage = await this.searchPlayerImage(this.currentPlayer.name, teamName);
             
             if (alternativeImage) {
                 resultPlayerImage.src = alternativeImage;

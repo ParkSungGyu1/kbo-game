@@ -855,13 +855,13 @@ function getRandomKboGameDate(year) {
 
 
 // 네이버 검색 API 엔드포인트
-app.get('/api/search-player-image/:playerName', async (req, res) => {
-    const { playerName } = req.params;
+app.get('/api/search-player-image/:searchQuery', async (req, res) => {
+    const { searchQuery } = req.params;
     
     try {
-        console.log(`[DEBUG] Searching image for player: ${playerName}`);
+        console.log(`[DEBUG] Searching image with query: ${searchQuery}`);
         
-        const query = encodeURIComponent(`${playerName}사진`);
+        const query = encodeURIComponent(searchQuery);
         const url = `https://openapi.naver.com/v1/search/image?query=${query}&display=1&start=1&sort=sim&filter=all`;
         
         const response = await fetch(url, {
@@ -880,10 +880,10 @@ app.get('/api/search-player-image/:playerName', async (req, res) => {
         
         if (data.items && data.items.length > 0) {
             const thumbnail = data.items[0].thumbnail;
-            console.log(`[DEBUG] Found thumbnail for ${playerName}: ${thumbnail}`);
+            console.log(`[DEBUG] Found thumbnail for query "${searchQuery}": ${thumbnail}`);
             res.json({ success: true, thumbnail });
         } else {
-            console.log(`[DEBUG] No image found for ${playerName}`);
+            console.log(`[DEBUG] No image found for query "${searchQuery}"`);
             res.json({ success: false, error: '이미지를 찾을 수 없습니다' });
         }
     } catch (error) {
