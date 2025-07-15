@@ -887,6 +887,55 @@ header h1 {
     -webkit-tap-highlight-color: transparent;
 }
 
+/* 카카오 애드핏 광고 컨테이너 스타일 */
+.ad-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin: 15px auto;
+    padding: 10px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.header-ad {
+    margin: 20px auto 10px auto;
+    background: rgba(255, 255, 255, 0.15);
+}
+
+.loading-ad, .challenge-loading-ad {
+    margin: 20px auto;
+    background: rgba(102, 126, 234, 0.1);
+    border: 1px solid rgba(102, 126, 234, 0.2);
+}
+
+.result-ad, .challenge-result-ad {
+    margin: 25px auto;
+    background: rgba(0, 0, 0, 0.05);
+    border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+/* 모바일 최적화 */
+@media (max-width: 768px) {
+    .ad-container {
+        margin: 10px auto;
+        padding: 8px;
+    }
+    
+    .header-ad {
+        margin: 15px auto 5px auto;
+    }
+    
+    .loading-ad, .challenge-loading-ad {
+        margin: 15px auto;
+    }
+    
+    .result-ad, .challenge-result-ad {
+        margin: 20px auto;
+    }
+}
+
 /* 모드 선택 스타일 */
 .mode-selection {
     text-align: center;

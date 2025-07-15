@@ -3,7 +3,6 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="google-adsense-account" content="ca-pub-4650205048012969">
     
     <!-- 카카오톡 인앱브라우저 호환성 개선 -->
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
@@ -34,18 +33,14 @@
         <header>
             <h1>KBO 선수 맞추기 퀴즈</h1>
             <p class="subtitle">선수 정보를 보고 누구인지 맞춰보세요!</p>
-            <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-4650205048012969"
-     crossorigin="anonymous"></script>
-<!-- kbo-quiz01 -->
-<ins class="adsbygoogle"
-     style="display:block"
-     data-ad-client="ca-pub-4650205048012969"
-     data-ad-slot="7625149004"
-     data-ad-format="auto"
-     data-full-width-responsive="true"></ins>
-<script>
-     (adsbygoogle = window.adsbygoogle || []).push({});
-</script>
+            
+            <!-- 카카오 애드핏 헤더 배너 (320x100) -->
+            <div class="ad-container header-ad">
+                <ins class="kakao_ad_area" style="display:none;"
+                    data-ad-unit="DAN-EcXSyeogsl1OBj5u"
+                    data-ad-width="320"
+                    data-ad-height="100"></ins>
+            </div>
         </header>
 
         <main>
@@ -206,6 +201,14 @@
                 <div class="loading" id="loading">
                     <p id="loading-message">선수 정보를 불러오는 중...</p>
                     <p id="loading-detail"></p>
+                    
+                    <!-- 카카오 애드핏 로딩 화면 광고 (300x250) -->
+                    <div class="ad-container loading-ad">
+                        <ins class="kakao_ad_area" style="display:none;"
+                            data-ad-unit="DAN-O5Lbw7vuG9zZEuzB"
+                            data-ad-width="300"
+                            data-ad-height="250"></ins>
+                    </div>
                 </div>
             </div>
 
@@ -251,6 +254,15 @@
                     <div class="loading-spinner"></div>
                     <p id="challenge-loading-message">선수 정보를 불러오는 중...</p>
                     <p id="challenge-loading-detail"></p>
+                    
+                    <!-- 카카오 애드핏 연속 도전 로딩 광고 (300x250) -->
+                    <div class="ad-container challenge-loading-ad">
+                        <ins class="kakao_ad_area" style="display:none;"
+                            data-ad-unit="DAN-O5Lbw7vuG9zZEuzB"
+                            data-ad-width="300"
+                            data-ad-height="250"></ins>
+                    </div>
+                    
                     <div class="challenge-loading-progress">
                         <div class="challenge-loading-progress-bar" id="challenge-loading-progress-bar" style="width: 0%"></div>
                     </div>
@@ -268,6 +280,18 @@
                             <p id="result-score"></p>
                         </div>
                     </div>
+                    <div id="result-tmi" class="game-rules" style="margin: 20px 0; text-align: left;">
+                        <!-- TMI가 동적으로 추가됩니다 -->
+                    </div>
+                    
+                    <!-- 카카오 애드핏 결과 화면 광고 (300x250) -->
+                    <div class="ad-container result-ad">
+                        <ins class="kakao_ad_area" style="display:none;"
+                            data-ad-unit="DAN-O5Lbw7vuG9zZEuzB"
+                            data-ad-width="300"
+                            data-ad-height="250"></ins>
+                    </div>
+                    
                     <div class="share-section">
                         <button id="share-result">친구에게 공유하기</button>
                         <button id="play-again">다시 플레이</button>
@@ -300,6 +324,18 @@
                         </div>
                     </div>
                     
+                    <div id="challenge-result-tmi" class="game-rules" style="margin: 20px 0; text-align: left;">
+                        <!-- TMI가 동적으로 추가됩니다 -->
+                    </div>
+                    
+                    <!-- 카카오 애드핏 연속 도전 결과 광고 (300x250) -->
+                    <div class="ad-container challenge-result-ad">
+                        <ins class="kakao_ad_area" style="display:none;"
+                            data-ad-unit="DAN-O5Lbw7vuG9zZEuzB"
+                            data-ad-width="300"
+                            data-ad-height="250"></ins>
+                    </div>
+                    
                     <div class="share-section">
                         <button id="challenge-share-result">친구에게 공유하기</button>
                         <button id="challenge-play-again">다시 도전하기</button>
@@ -310,5 +346,8 @@
     </div>
 
     <script src="script.js"></script>
+    
+    <!-- 카카오 애드핏 스크립트 -->
+    <script type="text/javascript" src="//t1.daumcdn.net/kas/static/ba.min.js" async></script>
 </body>
 </html>

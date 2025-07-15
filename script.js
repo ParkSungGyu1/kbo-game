@@ -21,7 +21,8 @@ class KBOQuizGame {
             timer: null,
             remainingTime: 60,
             startTime: null,
-            results: []
+            results: [],
+            currentHints: [] // 현재 라운드의 힌트 순서 저장
         };
         
         this.hintOrder = [
@@ -31,6 +32,40 @@ class KBOQuizGame {
             { key: 'career', label: '경력' },
             { key: 'backNo', label: '등번호' },
             { key: 'image', label: '사진' }
+        ];
+        
+        // KBO TMI 데이터
+        this.kboTMI = [
+            "KBO 리그는 10개 구단이 단일 리그로 운영되며, 팀당 144경기씩 총 720경기를 치릅니다.",
+            "2025년 KBO 리그 평균 연봉은 1억 6,071만원으로 역대 최고 기록입니다.",
+            "삼성 라이온즈는 KBO 역사상 가장 많은 8번의 우승을 차지했습니다.",
+            "오승환 선수는 KBO 현역 최고령 선수입니다. (1982년생)",
+            "2025년 KBO 리그에는 총 597명의 선수가 등록되어 있습니다.",
+            "KBO 정규 시즌에서 한 팀은 다른 팀들과 16경기씩 총 144경기를 치릅니다.",
+            "KBO 리그는 1982년 6개 구단으로 시작되어 현재 10개 구단으로 확대되었습니다.",
+            "한국시리즈는 7전 4선승제로 치러지며, 정규시즌 1위팀이 홈 어드밴티지를 가집니다.",
+            "KBO 역사상 최고 타율은 이승엽의 .393(2003년)입니다.",
+            "KBO 단일 시즌 최다 홈런 기록은 이승엽의 56홈런(2003년)입니다.",
+            "KBO 단일 시즌 최다 승리 기록은 선동열의 26승(1986년)입니다.",
+            "두산 베어스는 잠실야구장을 홈구장으로 사용하는 유일한 팀입니다.",
+            "SSG 랜더스는 2021년 창단된 KBO 최신 구단입니다.",
+            "KT 위즈는 2013년 창단되어 2015년부터 1군에 참가했습니다.",
+            "NC 다이노스는 2011년 창단되어 2013년부터 1군에 참가했습니다.",
+            "키움 히어로즈는 고척스카이돔을 홈구장으로 사용합니다.",
+            "한화 이글스는 1985년 빙그레 이글스로 시작되었습니다.",
+            "롯데 자이언츠는 부산을 연고지로 하는 유일한 KBO 팀입니다.",
+            "KIA 타이거즈는 광주-기아 챔피언스 필드를 홈구장으로 사용합니다.",
+            "LG 트윈스는 1982년 MBC 청룡으로 KBO에 참가했습니다.",
+            "야구에서 사이클링 히트는 단일 경기에서 1루타, 2루타, 3루타, 홈런을 모두 치는 것입니다.",
+            "KBO에서는 연장전 10회부터 무사 1, 2루 상황으로 시작합니다.",
+            "KBO 올스타전은 매년 7월에 열리며, 팬 투표로 선발됩니다.",
+            "KBO 신인왕은 신인선수 중 가장 뛰어난 활약을 한 선수에게 주어집니다.",
+            "KBO MVP는 정규시즌에서 가장 가치 있는 선수에게 주어지는 상입니다.",
+            "골든글러브상은 각 포지션별로 최고의 수비를 보인 선수에게 주어집니다.",
+            "KBO에서는 지명타자(DH) 제도를 사용합니다.",
+            "야구에서 완전경기는 9이닝을 던져 단 한 명의 주자도 내보내지 않는 것입니다.",
+            "노히트노런은 9이닝을 던져 안타를 단 하나도 허용하지 않는 것입니다.",
+            "KBO에서 외국인 선수는 팀당 최대 3명까지 등록할 수 있습니다."
         ];
         
         // API 기본 URL 설정
@@ -50,6 +85,12 @@ class KBOQuizGame {
         
         // 배포 환경에서는 상대 경로 사용 (같은 서버에서 API 제공)
         return '';
+    }
+    
+    // 랜덤 KBO TMI 가져오기
+    getRandomTMI() {
+        const randomIndex = Math.floor(Math.random() * this.kboTMI.length);
+        return this.kboTMI[randomIndex];
     }
     
     init() {
@@ -815,6 +856,13 @@ class KBOQuizGame {
         this.hintsShown = 0;
         this.challengeMode.remainingTime = this.challengeMode.timeLimit;
         
+        // 현재 라운드의 힌트 순서 미리 결정 (한 번만!)
+        if (this.challengeMode.difficulty === 'easy') {
+            this.challengeMode.currentHints = [...this.hintOrder];
+        } else {
+            this.challengeMode.currentHints = this.getRandomHints(this.challengeMode.maxHints);
+        }
+        
         // 화면 전환
         this.showScreen('challenge-game-screen');
         this.showChallengeLoading(false);
@@ -888,10 +936,8 @@ class KBOQuizGame {
         const hintsContainer = document.getElementById('challenge-hints-container');
         hintsContainer.innerHTML = '';
         
-        // 난이도별 힌트 제한
-        const availableHints = this.challengeMode.difficulty === 'easy' ? 
-            this.hintOrder : 
-            this.getRandomHints(this.challengeMode.maxHints);
+        // 미리 결정된 힌트 순서 사용
+        const availableHints = this.challengeMode.currentHints;
         
         // 현재까지 표시할 힌트 개수 (최소 1개)
         const hintsToShow = Math.min(this.hintsShown + 1, availableHints.length);
@@ -918,12 +964,8 @@ class KBOQuizGame {
         const hints = [...this.hintOrder];
         const selected = [];
         
-        // 생년월일은 항상 포함
-        selected.push(hints[0]);
-        hints.splice(0, 1);
-        
-        // 나머지 힌트 랜덤 선택
-        for (let i = 1; i < count && hints.length > 0; i++) {
+        // 모든 힌트를 랜덤하게 선택 (생년월일 고정 제거)
+        for (let i = 0; i < count && hints.length > 0; i++) {
             const randomIndex = Math.floor(Math.random() * hints.length);
             selected.push(hints[randomIndex]);
             hints.splice(randomIndex, 1);
@@ -948,9 +990,7 @@ class KBOQuizGame {
             this.challengeCorrectAnswer();
         } else {
             // 틀렸을 때 일반 모드처럼 힌트 보기
-            const availableHints = this.challengeMode.difficulty === 'easy' ? 
-                this.hintOrder : 
-                this.getRandomHints(this.challengeMode.maxHints);
+            const availableHints = this.challengeMode.currentHints;
             
             if (this.hintsShown >= availableHints.length) {
                 // 모든 힌트를 다 봤으면 연속 도전 실패
@@ -1026,9 +1066,7 @@ class KBOQuizGame {
     
     // 연속 도전 모드 다음 힌트 표시
     showChallengeNextHint() {
-        const availableHints = this.challengeMode.difficulty === 'easy' ? 
-            this.hintOrder : 
-            this.getRandomHints(this.challengeMode.maxHints);
+        const availableHints = this.challengeMode.currentHints;
         
         if (this.hintsShown < availableHints.length) {
             this.currentScore = Math.max(1, this.currentScore - 1);
@@ -1077,6 +1115,16 @@ class KBOQuizGame {
         
         // 상세 결과 표시
         this.showChallengeBreakdown();
+        
+        // TMI 표시
+        const tmiContainer = document.getElementById('challenge-result-tmi');
+        if (tmiContainer) {
+            const tmi = this.getRandomTMI();
+            tmiContainer.innerHTML = `
+                <h3>⚾ KBO TMI</h3>
+                <p>${tmi}</p>
+            `;
+        }
     }
     
     // 연속 도전 모드 상세 결과 표시
@@ -1165,7 +1213,7 @@ class KBOQuizGame {
     }
     
     // 연속 도전 모드 로딩 표시
-    showChallengeLoading(show, message = '', detail = '') {
+    showChallengeLoading(show, message = '', detail = '', progress = 0) {
         const loading = document.getElementById('challenge-loading');
         const messageElement = document.getElementById('challenge-loading-message');
         const detailElement = document.getElementById('challenge-loading-detail');
@@ -1173,7 +1221,22 @@ class KBOQuizGame {
         loading.style.display = show ? 'block' : 'none';
         
         if (messageElement) messageElement.textContent = message;
-        if (detailElement) detailElement.textContent = detail;
+        
+        // TMI가 포함된 detail 표시 또는 기본 detail
+        if (detailElement) {
+            if (show && !detail.includes('KBO TMI')) {
+                const tmi = this.getRandomTMI();
+                detailElement.innerHTML = `${detail}<br><br><strong>⚾ KBO TMI:</strong><br>${tmi}`;
+            } else {
+                detailElement.innerHTML = detail;
+            }
+        }
+        
+        // 프로그레스 바 업데이트
+        const progressBar = document.getElementById('challenge-loading-progress-bar');
+        if (progressBar) {
+            progressBar.style.width = `${progress}%`;
+        }
         
         // 게임 요소들 숨기기/표시
         document.querySelector('.challenge-header').style.display = show ? 'none' : 'block';
@@ -1456,6 +1519,16 @@ class KBOQuizGame {
             resultTitle.textContent = '아쉽습니다!';
             resultScore.textContent = `정답은 ${this.currentPlayer.name}이었습니다.`;
         }
+        
+        // TMI 표시
+        const tmiContainer = document.getElementById('result-tmi');
+        if (tmiContainer) {
+            const tmi = this.getRandomTMI();
+            tmiContainer.innerHTML = `
+                <h3>⚾ KBO TMI</h3>
+                <p>${tmi}</p>
+            `;
+        }
     }
     
     shareResult() {
@@ -1565,6 +1638,15 @@ class KBOQuizGame {
         document.querySelector('.game-info').style.display = show ? 'none' : 'flex';
         document.querySelector('.hints-container').style.display = show ? 'none' : 'block';
         document.querySelector('.answer-section').style.display = show ? 'none' : 'flex';
+        
+        // 로딩 중일 때 TMI 표시
+        if (show) {
+            const tmi = this.getRandomTMI();
+            const loadingDetail = document.getElementById('loading-detail');
+            if (loadingDetail) {
+                loadingDetail.innerHTML = `<strong>⚾ KBO TMI:</strong><br>${tmi}`;
+            }
+        }
     }
 }
 
