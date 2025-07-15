@@ -128,24 +128,120 @@ function parsePlayers(asyncHtml) {
     }
 }
 
-// KBO 구단 목록 조회 엔드포인트
-app.get('/api/teams/:year', async (req, res) => {
+// 팀 목록 조회 재시도 함수
+async function fetchTeamsWithRetry(year, attempt = 1, maxRetries = 5) {
+    console.log(`[DEBUG] Attempt ${attempt}/${maxRetries} for teams year ${year}`);
+    
     try {
-        const { year } = req.params;
+        console.log(`[DEBUG] Fetching teams for year: ${year}`);
         
         // 날짜는 7월 1일로 고정
         const date = `${year}0701`;
         const url = 'https://www.koreabaseball.com/Player/Register.aspx';
         
-        // 1단계: 초기 페이지 접속하여 팀 목록 추출
-        const response = await fetch(url);
-        const html = await response.text();
-        const $ = cheerio.load(html);
+        // 1단계: 초기 페이지 접속하여 ViewState, EventValidation 추출
+        const initialResponse = await fetch(url);
+        const initialHtml = await initialResponse.text();
+        const initialParams = extractAspNetParams(initialHtml);
         
+        if (!initialParams.viewState || !initialParams.eventValidation) {
+            throw new Error('ASP.NET ViewState 추출 실패');
+        }
+        
+        // 2단계: 해당 연도로 폼 제출하여 실제 구단 목록 가져오기
+        const formData = new URLSearchParams({
+            'ctl00$ctl00$ctl00$cphContents$cphContents$cphContents$ScriptManager1': 'ctl00$ctl00$ctl00$cphContents$cphContents$cphContents$udpRecord|ctl00$ctl00$ctl00$cphContents$cphContents$cphContents$btnCalendarSelect',
+            'ctl00$ctl00$ctl00$cphContents$cphContents$cphContents$hfSearchDate': date,
+            '__EVENTTARGET': 'ctl00$ctl00$ctl00$cphContents$cphContents$cphContents$btnCalendarSelect',
+            '__EVENTARGUMENT': '',
+            '__VIEWSTATE': initialParams.viewState,
+            '__EVENTVALIDATION': initialParams.eventValidation,
+            '__ASYNCPOST': 'true'
+        });
+        
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: {
+                'Accept': '*/*',
+                'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7',
+                'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+                'Origin': 'https://www.koreabaseball.com',
+                'Referer': 'https://www.koreabaseball.com/Player/Register.aspx',
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'X-MicrosoftAjax': 'Delta=true',
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: formData.toString()
+        });
+        
+        if (!response.ok) {
+            throw new Error(`Request failed: ${response.status}`);
+        }
+        
+        const asyncHtml = await response.text();
+        console.log(`[DEBUG] Response received, parsing HTML for year ${year}`);
+        
+        // AJAX 응답 파싱
+        let html = asyncHtml;
+        if (asyncHtml.includes('|') && asyncHtml.includes('updatePanel')) {
+            const parts = asyncHtml.split('|');
+            for (let i = 0; i < parts.length; i++) {
+                if (parts[i] === 'updatePanel' && parts[i + 1] && parts[i + 1].includes('udpRecord')) {
+                    try {
+                        html = decodeURIComponent(parts[i + 2]);
+                        break;
+                    } catch (e) {
+                        html = parts[i + 2];
+                        break;
+                    }
+                }
+            }
+        }
+        
+        const $ = cheerio.load(html);
         const teams = [];
         
+        // HTML 구조 디버깅
+        console.log(`[DEBUG] HTML length for year ${year}:`, html.length);
+        console.log(`[DEBUG] Looking for teams with selector: #cphContents_cphContents_cphContents_udpRecord .teams ul li`);
+        console.log(`[DEBUG] udpRecord found:`, $('#cphContents_cphContents_cphContents_udpRecord').length);
+        console.log(`[DEBUG] .teams found:`, $('.teams').length);
+        console.log(`[DEBUG] ul li found:`, $('ul li').length);
+        
+        // 다양한 셀렉터 시도
+        let selectorUsed = '';
+        let $teamElements = $('#cphContents_cphContents_cphContents_udpRecord .teams ul li');
+        
+        if ($teamElements.length === 0) {
+            console.log(`[DEBUG] First selector failed, trying alternatives...`);
+            $teamElements = $('.teams ul li');
+            selectorUsed = '.teams ul li';
+        }
+        
+        if ($teamElements.length === 0) {
+            $teamElements = $('ul li[data-id]');
+            selectorUsed = 'ul li[data-id]';
+        }
+        
+        if ($teamElements.length === 0) {
+            $teamElements = $('li[data-id]');
+            selectorUsed = 'li[data-id]';
+        }
+        
+        console.log(`[DEBUG] Using selector: ${selectorUsed || 'original'}, found ${$teamElements.length} elements`);
+        
+        // HTML 내용 일부 확인 (디버깅용)
+        if ($teamElements.length === 0) {
+            console.log(`[DEBUG] HTML snippet (first 500 chars):`, html.substring(0, 500));
+            console.log(`[DEBUG] Searching for common team selectors...`);
+            console.log(`[DEBUG] .team found:`, $('.team').length);
+            console.log(`[DEBUG] [data-team] found:`, $('[data-team]').length);
+            console.log(`[DEBUG] img elements found:`, $('img').length);
+            console.log(`[DEBUG] anchor elements found:`, $('a').length);
+        }
+        
         // HTML 분석 결과에 따라 실제 셀렉터 사용 - 로고 이미지 포함
-        $('#cphContents_cphContents_cphContents_udpRecord .teams ul li').each((i, el) => {
+        $teamElements.each((i, el) => {
             const $li = $(el);
             const dataId = $li.attr('data-id');
             
@@ -160,12 +256,10 @@ app.get('/api/teams/:year', async (req, res) => {
                         fullImageUrl = imgSrc;
                     } else if (imgSrc.startsWith('//')) {
                         fullImageUrl = 'https:' + imgSrc;
-                    } else if (imgSrc.startsWith('./')) {
-                        fullImageUrl = 'https://www.koreabaseball.com/' + imgSrc.substring(2);
-                    } else if (imgSrc.startsWith('/')) {
-                        fullImageUrl = 'https://www.koreabaseball.com' + imgSrc;
                     } else {
-                        fullImageUrl = 'https://www.koreabaseball.com/' + imgSrc;
+                        // 상대경로인 경우 올바른 CDN URL로 변환
+                        console.log(`[DEBUG] Original imgSrc: ${imgSrc}`);
+                        fullImageUrl = imgSrc;
                     }
                 }
                 
@@ -177,36 +271,67 @@ app.get('/api/teams/:year', async (req, res) => {
             }
         });
         
-        console.log(`[DEBUG] Found ${teams.length} teams from initial page`);
+        console.log(`[DEBUG] Found ${teams.length} teams from AJAX response for year ${year}`);
         
-        // 팀을 찾지 못한 경우 기본 팀 목록 제공
+        // 팀을 찾지 못한 경우 실패로 반환
         if (teams.length === 0) {
-            console.log('[DEBUG] No teams found from HTML, using default teams');
-            const defaultTeams = [
-                { code: 'HH', name: '한화' },
-                { code: 'LG', name: 'LG' },
-                { code: 'LT', name: '롯데' },
-                { code: 'HT', name: 'KIA' },
-                { code: 'KT', name: 'KT' },
-                { code: 'SK', name: 'SSG' },
-                { code: 'NC', name: 'NC' },
-                { code: 'SS', name: '삼성' },
-                { code: 'OB', name: '두산' },
-                { code: 'WO', name: '키움' }
-            ];
-            
-            defaultTeams.forEach(team => {
-                teams.push({
-                    ...team,
-                    imageUrl: `https://www.koreabaseball.com/images/emblem/regular/${year}/emblem_${team.code}.png`
-                });
-            });
+            console.log(`[DEBUG] No teams found from HTML for year ${year} on attempt ${attempt}`);
+            return { success: false, teams: [], error: 'No teams found' };
         }
         
-        res.json({ success: true, teams });
+        return { success: true, teams };
     } catch (error) {
-        console.error('[팀 목록 조회 실패]', error);
-        res.status(500).json({ success: false, error: error.message });
+        console.error(`[팀 목록 조회 실패 - ${year}년 attempt ${attempt}]`, error);
+        return { success: false, teams: [], error: error.message };
+    }
+}
+
+// KBO 구단 목록 조회 엔드포인트 (재시도 로직 포함)
+app.get('/api/teams/:year', async (req, res) => {
+    const { year } = req.params;
+    const maxRetries = 5;
+    let lastError = null;
+    
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+            const result = await fetchTeamsWithRetry(year, attempt, maxRetries);
+            
+            // 성공한 경우
+            if (result.success && result.teams.length > 0) {
+                console.log(`[DEBUG] Success on attempt ${attempt} with ${result.teams.length} teams`);
+                res.json(result);
+                return;
+            }
+            
+            lastError = result.error;
+            
+            // 마지막 시도가 아니라면 잠시 대기
+            if (attempt < maxRetries) {
+                await delay(1000 * attempt); // 점진적 대기
+            }
+        } catch (error) {
+            lastError = error;
+            console.error(`[DEBUG] Attempt ${attempt} failed:`, error.message);
+            
+            if (attempt < maxRetries) {
+                await delay(1000 * attempt);
+            }
+        }
+    }
+    
+    // 모든 재시도 실패 시 기본 팀 목록으로 폴백
+    try {
+        console.log(`[DEBUG] All attempts failed, using default teams for year ${year}`);
+        const defaultTeams = getDefaultTeamsForYear(year);
+        const teams = defaultTeams.map(team => ({
+            ...team,
+            imageUrl: `https://www.koreabaseball.com/images/emblem/regular/${year}/emblem_${team.code}.png`
+        }));
+        
+        res.json({ success: true, teams, fallback: true });
+    } catch (fallbackError) {
+        console.error(`[팀 목록 폴백 실패 - ${year}년]`, fallbackError);
+        res.status(500).json({ success: false, error: lastError || fallbackError.message });
     }
 });
 
@@ -649,6 +774,47 @@ function parsePlayerDetail(html) {
     }
     
     return playerData;
+}
+
+// 연도별 기본 팀 목록 반환 함수
+function getDefaultTeamsForYear(year) {
+    const yearNum = parseInt(year);
+    
+    // 기본 팀 목록 (2010년 이후) - 실제 동작하는 이미지 URL 사용
+    let teams = [
+        { code: 'HH', name: '한화', imageUrl: 'https://www.koreabaseball.com/images/emblem/regular/2024/emblem_HH.png' },
+        { code: 'LG', name: 'LG', imageUrl: 'https://www.koreabaseball.com/images/emblem/regular/2024/emblem_LG.png' },
+        { code: 'LT', name: '롯데', imageUrl: 'https://www.koreabaseball.com/images/emblem/regular/2024/emblem_LT.png' },
+        { code: 'HT', name: 'KIA', imageUrl: 'https://www.koreabaseball.com/images/emblem/regular/2024/emblem_HT.png' },
+        { code: 'SS', name: '삼성', imageUrl: 'https://www.koreabaseball.com/images/emblem/regular/2024/emblem_SS.png' },
+        { code: 'OB', name: '두산', imageUrl: 'https://www.koreabaseball.com/images/emblem/regular/2024/emblem_OB.png' }
+    ];
+    
+    // 2013년부터 NC 다이노스 추가
+    if (yearNum >= 2013) {
+        teams.push({ code: 'NC', name: 'NC', imageUrl: 'https://www.koreabaseball.com/images/emblem/regular/2024/emblem_NC.png' });
+    }
+    
+    // 2015년부터 KT 위즈 추가
+    if (yearNum >= 2015) {
+        teams.push({ code: 'KT', name: 'KT', imageUrl: 'https://www.koreabaseball.com/images/emblem/regular/2024/emblem_KT.png' });
+    }
+    
+    // 2019년까지 넥센/키움 히어로즈
+    if (yearNum <= 2018) {
+        teams.push({ code: 'WO', name: '넥센', imageUrl: 'https://www.koreabaseball.com/images/emblem/regular/2024/emblem_WO.png' });
+    } else {
+        teams.push({ code: 'WO', name: '키움', imageUrl: 'https://www.koreabaseball.com/images/emblem/regular/2024/emblem_WO.png' });
+    }
+    
+    // SK 관련 변화
+    if (yearNum <= 2020) {
+        teams.push({ code: 'SK', name: 'SK', imageUrl: 'https://www.koreabaseball.com/images/emblem/regular/2024/emblem_SK.png' });
+    } else {
+        teams.push({ code: 'SK', name: 'SSG', imageUrl: 'https://www.koreabaseball.com/images/emblem/regular/2024/emblem_SK.png' });
+    }
+    
+    return teams;
 }
 
 function getRandomKboGameDate(year) {

@@ -96,7 +96,10 @@ class KBOQuizGame {
     init() {
         this.detectEnvironment();
         this.bindEvents();
-        this.loadTeams();
+        // 초기 팀 로딩을 지연시켜 DOM이 완전히 로드된 후 실행
+        setTimeout(() => {
+            this.loadTeams();
+        }, 100);
         this.setOgUrl();
     }
     
@@ -290,7 +293,10 @@ class KBOQuizGame {
         
         // 일반 모드 이벤트
         document.getElementById('player-name').addEventListener('input', this.validateForm.bind(this));
-        document.getElementById('game-year').addEventListener('change', this.loadTeamsForYear.bind(this));
+        document.getElementById('game-year').addEventListener('change', (e) => {
+            console.log('[DEBUG] Year changed to:', e.target.value);
+            this.loadTeamsForYear();
+        });
         document.getElementById('start-game').addEventListener('click', this.startGame.bind(this));
         document.getElementById('submit-answer').addEventListener('click', this.submitAnswer.bind(this));
         document.getElementById('get-hint').addEventListener('click', this.showNextHint.bind(this));
@@ -302,7 +308,10 @@ class KBOQuizGame {
         
         // 연속 도전 모드 이벤트
         document.getElementById('challenge-player-name').addEventListener('input', this.validateChallengeForm.bind(this));
-        document.getElementById('challenge-year').addEventListener('change', this.loadChallengeTeamsForYear.bind(this));
+        document.getElementById('challenge-year').addEventListener('change', (e) => {
+            console.log('[DEBUG] Challenge year changed to:', e.target.value);
+            this.loadChallengeTeamsForYear();
+        });
         document.getElementById('start-challenge').addEventListener('click', this.startChallengeGame.bind(this));
         document.getElementById('challenge-submit-answer').addEventListener('click', this.submitChallengeAnswer.bind(this));
         document.getElementById('challenge-get-hint').addEventListener('click', this.showChallengeNextHint.bind(this));
@@ -437,8 +446,15 @@ class KBOQuizGame {
         const year = document.getElementById('challenge-year').value;
         const teamLogosContainer = document.getElementById('challenge-team-logos-container');
         
-        // 기존 로고들 제거
+        console.log(`[DEBUG] Loading challenge teams for year: ${year}`);
+        
+        // 기존 로고들 제거 및 선택 상태 초기화
         teamLogosContainer.innerHTML = '';
+        document.getElementById('challenge-team').value = '';
+        this.validateChallengeForm();
+        
+        // 로딩 상태 표시
+        this.showTeamLoadingState(teamLogosContainer, '구단 검색중...');
         
         try {
             const fetchOptions = {
@@ -459,18 +475,18 @@ class KBOQuizGame {
         } catch (error) {
             console.warn('실제 팀 목록 로딩 실패, 기본 팀 목록 사용:', error);
             
-            // 실패 시 기본 팀 목록 사용
+            // 실패 시 기본 팀 목록 사용 (2024년 이미지 URL 사용)
             const defaultTeams = [
-                { code: 'HH', name: '한화', imageUrl: `https://www.koreabaseball.com/images/emblem/regular/${year}/emblem_HH.png` },
-                { code: 'LG', name: 'LG', imageUrl: `https://www.koreabaseball.com/images/emblem/regular/${year}/emblem_LG.png` },
-                { code: 'LT', name: '롯데', imageUrl: `https://www.koreabaseball.com/images/emblem/regular/${year}/emblem_LT.png` },
-                { code: 'HT', name: 'KIA', imageUrl: `https://www.koreabaseball.com/images/emblem/regular/${year}/emblem_HT.png` },
-                { code: 'KT', name: 'KT', imageUrl: `https://www.koreabaseball.com/images/emblem/regular/${year}/emblem_KT.png` },
-                { code: 'SK', name: 'SSG', imageUrl: `https://www.koreabaseball.com/images/emblem/regular/${year}/emblem_SK.png` },
-                { code: 'NC', name: 'NC', imageUrl: `https://www.koreabaseball.com/images/emblem/regular/${year}/emblem_NC.png` },
-                { code: 'SS', name: '삼성', imageUrl: `https://www.koreabaseball.com/images/emblem/regular/${year}/emblem_SS.png` },
-                { code: 'OB', name: '두산', imageUrl: `https://www.koreabaseball.com/images/emblem/regular/${year}/emblem_OB.png` },
-                { code: 'WO', name: '키움', imageUrl: `https://www.koreabaseball.com/images/emblem/regular/${year}/emblem_WO.png` }
+                { code: 'HH', name: '한화', imageUrl: 'https://www.koreabaseball.com/images/emblem/regular/2024/emblem_HH.png' },
+                { code: 'LG', name: 'LG', imageUrl: 'https://www.koreabaseball.com/images/emblem/regular/2024/emblem_LG.png' },
+                { code: 'LT', name: '롯데', imageUrl: 'https://www.koreabaseball.com/images/emblem/regular/2024/emblem_LT.png' },
+                { code: 'HT', name: 'KIA', imageUrl: 'https://www.koreabaseball.com/images/emblem/regular/2024/emblem_HT.png' },
+                { code: 'KT', name: 'KT', imageUrl: 'https://www.koreabaseball.com/images/emblem/regular/2024/emblem_KT.png' },
+                { code: 'SK', name: 'SSG', imageUrl: 'https://www.koreabaseball.com/images/emblem/regular/2024/emblem_SK.png' },
+                { code: 'NC', name: 'NC', imageUrl: 'https://www.koreabaseball.com/images/emblem/regular/2024/emblem_NC.png' },
+                { code: 'SS', name: '삼성', imageUrl: 'https://www.koreabaseball.com/images/emblem/regular/2024/emblem_SS.png' },
+                { code: 'OB', name: '두산', imageUrl: 'https://www.koreabaseball.com/images/emblem/regular/2024/emblem_OB.png' },
+                { code: 'WO', name: '키움', imageUrl: 'https://www.koreabaseball.com/images/emblem/regular/2024/emblem_WO.png' }
             ];
             
             this.renderChallengeTeamLogos(defaultTeams);
@@ -482,6 +498,9 @@ class KBOQuizGame {
     
     renderChallengeTeamLogos(teams) {
         const teamLogosContainer = document.getElementById('challenge-team-logos-container');
+        
+        // 로딩 스피너 제거
+        teamLogosContainer.innerHTML = '';
         
         teams.forEach((team) => {
             const logoDiv = document.createElement('div');
@@ -548,8 +567,15 @@ class KBOQuizGame {
         const year = document.getElementById('game-year').value;
         const teamLogosContainer = document.getElementById('team-logos-container');
         
-        // 기존 로고들 제거
+        console.log(`[DEBUG] Loading teams for year: ${year}`);
+        
+        // 기존 로고들 제거 및 선택 상태 초기화
         teamLogosContainer.innerHTML = '';
+        document.getElementById('game-team').value = '';
+        this.validateForm();
+        
+        // 로딩 상태 표시
+        this.showTeamLoadingState(teamLogosContainer, '구단 검색중...');
         
         try {
             // 카카오톡 인앱 브라우저 호환성 처리
@@ -571,18 +597,18 @@ class KBOQuizGame {
         } catch (error) {
             console.warn('실제 팀 목록 로딩 실패, 기본 팀 목록 사용:', error);
             
-            // 실패 시 기본 팀 목록 사용
+            // 실패 시 기본 팀 목록 사용 (2024년 이미지 URL 사용)
             const defaultTeams = [
-                { code: 'HH', name: '한화', imageUrl: `https://www.koreabaseball.com/images/emblem/regular/${year}/emblem_HH.png` },
-                { code: 'LG', name: 'LG', imageUrl: `https://www.koreabaseball.com/images/emblem/regular/${year}/emblem_LG.png` },
-                { code: 'LT', name: '롯데', imageUrl: `https://www.koreabaseball.com/images/emblem/regular/${year}/emblem_LT.png` },
-                { code: 'HT', name: 'KIA', imageUrl: `https://www.koreabaseball.com/images/emblem/regular/${year}/emblem_HT.png` },
-                { code: 'KT', name: 'KT', imageUrl: `https://www.koreabaseball.com/images/emblem/regular/${year}/emblem_KT.png` },
-                { code: 'SK', name: 'SSG', imageUrl: `https://www.koreabaseball.com/images/emblem/regular/${year}/emblem_SK.png` },
-                { code: 'NC', name: 'NC', imageUrl: `https://www.koreabaseball.com/images/emblem/regular/${year}/emblem_NC.png` },
-                { code: 'SS', name: '삼성', imageUrl: `https://www.koreabaseball.com/images/emblem/regular/${year}/emblem_SS.png` },
-                { code: 'OB', name: '두산', imageUrl: `https://www.koreabaseball.com/images/emblem/regular/${year}/emblem_OB.png` },
-                { code: 'WO', name: '키움', imageUrl: `https://www.koreabaseball.com/images/emblem/regular/${year}/emblem_WO.png` }
+                { code: 'HH', name: '한화', imageUrl: 'https://www.koreabaseball.com/images/emblem/regular/2024/emblem_HH.png' },
+                { code: 'LG', name: 'LG', imageUrl: 'https://www.koreabaseball.com/images/emblem/regular/2024/emblem_LG.png' },
+                { code: 'LT', name: '롯데', imageUrl: 'https://www.koreabaseball.com/images/emblem/regular/2024/emblem_LT.png' },
+                { code: 'HT', name: 'KIA', imageUrl: 'https://www.koreabaseball.com/images/emblem/regular/2024/emblem_HT.png' },
+                { code: 'KT', name: 'KT', imageUrl: 'https://www.koreabaseball.com/images/emblem/regular/2024/emblem_KT.png' },
+                { code: 'SK', name: 'SSG', imageUrl: 'https://www.koreabaseball.com/images/emblem/regular/2024/emblem_SK.png' },
+                { code: 'NC', name: 'NC', imageUrl: 'https://www.koreabaseball.com/images/emblem/regular/2024/emblem_NC.png' },
+                { code: 'SS', name: '삼성', imageUrl: 'https://www.koreabaseball.com/images/emblem/regular/2024/emblem_SS.png' },
+                { code: 'OB', name: '두산', imageUrl: 'https://www.koreabaseball.com/images/emblem/regular/2024/emblem_OB.png' },
+                { code: 'WO', name: '키움', imageUrl: 'https://www.koreabaseball.com/images/emblem/regular/2024/emblem_WO.png' }
             ];
             
             this.renderTeamLogos(defaultTeams);
@@ -599,6 +625,9 @@ class KBOQuizGame {
             console.error('team-logos-container not found!');
             return;
         }
+        
+        // 로딩 스피너 제거
+        teamLogosContainer.innerHTML = '';
         
         teams.forEach((team) => {
             const logoDiv = document.createElement('div');
@@ -647,6 +676,16 @@ class KBOQuizGame {
         
         // 폼 검증
         this.validateForm();
+    }
+    
+    // 팀 로딩 상태 표시
+    showTeamLoadingState(container, message) {
+        container.innerHTML = `
+            <div style="grid-column: 1 / -1; text-align: center; padding: 40px; color: #666;">
+                <div class="loading-spinner" style="margin: 0 auto 15px auto;"></div>
+                <div style="font-size: 16px; font-weight: bold;">${message}</div>
+            </div>
+        `;
     }
     
     // 연속 도전 모드 게임 시작
